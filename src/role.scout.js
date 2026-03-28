@@ -1,82 +1,65 @@
 /**
- * Scout explores rooms up to 10 rooms away and stores intel in Memory.roomIntel.
+ * Scout explores rooms and stores intel in Memory.roomIntel.
  * Cheap [MOVE] body (50 energy). Only 1 needed.
- * Uses a waypoint system to navigate through rooms one at a time.
+ * Simple approach: pick an unscouted room, go there, repeat.
  */
 module.exports = {
     run(creep) {
-        const homeRoom = creep.memory.homeRoom;
-
-        // If we're in a non-home room, record intel
-        if (creep.room.name !== homeRoom) {
+        // Record intel in every non-home room we pass through
+        if (creep.room.name !== creep.memory.homeRoom) {
             this.recordIntel(creep.room);
         }
 
-        // Pick next final target if we don't have one, or we've arrived at it
+        // If no target or arrived at target, pick new one
         if (!creep.memory.target || creep.room.name === creep.memory.target) {
-            const newTarget = this.pickTarget(creep);
-            creep.memory.target = newTarget;
-            creep.memory.waypoints = null; // Clear waypoints to recalculate
-            if (newTarget) {
-                console.log(`🔭 Scout targeting ${newTarget}`);
+            creep.memory.target = this.pickTarget(creep);
+            creep.memory.stuckTicks = 0;
+            if (creep.memory.target) {
+                console.log(`🔭 Scout: heading to ${creep.memory.target}`);
             }
         }
 
         if (!creep.memory.target) return;
 
-        // Build waypoint path if we don't have one
-        if (!creep.memory.waypoints || creep.memory.waypoints.length === 0) {
-            const path = this.findRoomPath(creep.room.name, creep.memory.target);
-            if (path && path.length > 0) {
-                creep.memory.waypoints = path;
-            } else {
-                // Can't path there, pick a new target next tick
-                creep.memory.target = null;
-                return;
-            }
+        // Stuck detection — if same position for 5+ ticks, skip target
+        const posKey = creep.pos.x + ',' + creep.pos.y;
+        if (creep.memory.lastPos === posKey) {
+            creep.memory.stuckTicks = (creep.memory.stuckTicks || 0) + 1;
+        } else {
+            creep.memory.stuckTicks = 0;
+        }
+        creep.memory.lastPos = posKey;
+
+        if (creep.memory.stuckTicks > 5) {
+            console.log(`🔭 Scout: stuck, blacklisting ${creep.memory.target}`);
+            if (!creep.memory.blacklist) creep.memory.blacklist = [];
+            creep.memory.blacklist.push(creep.memory.target);
+            creep.memory.target = null;
+            creep.memory.stuckTicks = 0;
+            return;
         }
 
-        // Move toward current waypoint (next room in the path)
-        const nextRoom = creep.memory.waypoints[0];
-
-        if (creep.room.name === nextRoom) {
-            // Arrived at this waypoint, advance to next
-            creep.memory.waypoints.shift();
-            if (creep.memory.waypoints.length === 0) {
-                // Arrived at final target
-                return;
+        // Move — just walk toward the target room center
+        const exitDir = creep.room.findExitTo(creep.memory.target);
+        if (exitDir > 0) {
+            const exit = creep.pos.findClosestByRange(exitDir);
+            if (exit) {
+                creep.moveTo(exit, { reusePath: 5 });
             }
-        }
-
-        // Move to next waypoint
-        const waypoint = creep.memory.waypoints[0];
-        if (waypoint) {
-            // Use RoomPosition to navigate — handles cross-room pathing better
-            const dest = new RoomPosition(25, 25, waypoint);
-            const result = creep.moveTo(dest, { reusePath: 5 });
-
-            // If stuck for too long, skip this target
-            if (!creep.memory.stuckCount) creep.memory.stuckCount = 0;
-            if (result === ERR_NO_PATH || result === ERR_INVALID_TARGET) {
-                creep.memory.stuckCount++;
-            } else if (result === OK || result === ERR_TIRED) {
-                creep.memory.stuckCount = 0;
-            }
-
-            // Track position to detect being stuck
-            const posKey = creep.pos.x + ',' + creep.pos.y + ',' + creep.room.name;
-            if (creep.memory.lastPos === posKey) {
-                creep.memory.stuckCount++;
+        } else {
+            // Not directly adjacent — find which adjacent room is on the path
+            const nextRoom = this.getNextRoomOnPath(creep.room.name, creep.memory.target);
+            if (nextRoom) {
+                const nextExitDir = creep.room.findExitTo(nextRoom);
+                if (nextExitDir > 0) {
+                    const exit = creep.pos.findClosestByRange(nextExitDir);
+                    if (exit) {
+                        creep.moveTo(exit, { reusePath: 5 });
+                    }
+                }
             } else {
-                creep.memory.stuckCount = 0;
-            }
-            creep.memory.lastPos = posKey;
-
-            if (creep.memory.stuckCount > 5) {
-                console.log(`🔭 Scout stuck, skipping target ${creep.memory.target}`);
+                // Can't path, skip
                 creep.memory.target = null;
-                creep.memory.waypoints = null;
-                creep.memory.stuckCount = 0;
             }
         }
     },
@@ -108,18 +91,14 @@ module.exports = {
     },
 
     /**
-     * Find a room-level path from start to target using BFS.
-     * Returns array of room names to traverse (excluding start room).
+     * BFS to find next room to walk into on the way to target.
      */
-    findRoomPath(startRoom, targetRoom) {
-        if (startRoom === targetRoom) return [];
-
-        const visited = new Set([startRoom]);
-        const queue = [{ name: startRoom, path: [] }];
+    getNextRoomOnPath(fromRoom, toRoom) {
+        const visited = new Set([fromRoom]);
+        const queue = [{ name: fromRoom, firstStep: null }];
 
         while (queue.length > 0) {
             const current = queue.shift();
-            if (current.path.length >= 12) continue;
 
             const exits = Game.map.describeExits(current.name);
             if (!exits) continue;
@@ -128,24 +107,31 @@ module.exports = {
                 if (visited.has(nextRoom)) continue;
                 visited.add(nextRoom);
 
-                const newPath = [...current.path, nextRoom];
-                if (nextRoom === targetRoom) return newPath;
+                const step = current.firstStep || nextRoom;
 
-                queue.push({ name: nextRoom, path: newPath });
+                if (nextRoom === toRoom) return step;
+
+                // Don't path through hostile rooms
+                const intel = Memory.roomIntel[nextRoom];
+                if (intel && intel.controller && intel.controller.owner &&
+                    intel.controller.owner !== Memory.username) continue;
+
+                queue.push({ name: nextRoom, firstStep: step });
             }
         }
-
-        return null; // No path found
+        return null;
     },
 
     pickTarget(creep) {
         if (!Memory.roomIntel) Memory.roomIntel = {};
+        const blacklist = creep.memory.blacklist || [];
 
-        // Build a map of all rooms up to 10 away using BFS
+        // BFS from home to find all reachable rooms up to 10 away
         const homeRoom = creep.memory.homeRoom;
         const visited = new Set([homeRoom]);
         const queue = [{ name: homeRoom, depth: 0 }];
-        const rooms = [];
+        const unscouted = [];
+        const stale = [];
 
         while (queue.length > 0) {
             const current = queue.shift();
@@ -158,39 +144,47 @@ module.exports = {
                 if (visited.has(nextRoom)) continue;
                 visited.add(nextRoom);
 
-                // Skip rooms we know are owned by hostile players
-                const knownIntel = Memory.roomIntel[nextRoom];
-                const isHostile = knownIntel && knownIntel.controller &&
-                    knownIntel.controller.owner && knownIntel.controller.owner !== Memory.username;
+                // Skip hostile-owned rooms
+                const intel = Memory.roomIntel[nextRoom];
+                if (intel && intel.controller && intel.controller.owner &&
+                    intel.controller.owner !== Memory.username) continue;
 
-                // Still add to visited but don't explore through hostile rooms
-                // and don't add them as scout targets
-                if (isHostile) continue;
+                // Skip blacklisted rooms
+                if (blacklist.includes(nextRoom)) {
+                    queue.push({ name: nextRoom, depth: current.depth + 1 });
+                    continue;
+                }
 
-                const age = knownIntel ? Game.time - knownIntel.lastScouted : Infinity;
+                if (!intel) {
+                    unscouted.push({ name: nextRoom, depth: current.depth + 1 });
+                } else {
+                    const age = Game.time - intel.lastScouted;
+                    if (age > 10000) {
+                        stale.push({ name: nextRoom, depth: current.depth + 1, age });
+                    }
+                }
 
-                rooms.push({ name: nextRoom, depth: current.depth + 1, age });
                 queue.push({ name: nextRoom, depth: current.depth + 1 });
             }
         }
 
-        // Pick rooms that need scouting: never scouted or older than 10000 ticks
-        const needsScouting = rooms.filter(r => r.age > 10000);
-
-        if (needsScouting.length > 0) {
-            // Prefer unscouted first, then closer, then oldest
-            needsScouting.sort((a, b) => {
-                const aUnscouted = a.age === Infinity ? 1 : 0;
-                const bUnscouted = b.age === Infinity ? 1 : 0;
-                if (aUnscouted !== bUnscouted) return bUnscouted - aUnscouted;
-                if (a.depth !== b.depth) return a.depth - b.depth;
-                return b.age - a.age;
-            });
-            return needsScouting[0].name;
+        // Prefer unscouted rooms, closest first
+        if (unscouted.length > 0) {
+            unscouted.sort((a, b) => a.depth - b.depth);
+            return unscouted[0].name;
         }
 
-        // Everything is fresh — cycle through rooms by depth
-        rooms.sort((a, b) => b.age - a.age);
-        return rooms.length > 0 ? rooms[0].name : null;
+        // Then stale rooms, oldest first
+        if (stale.length > 0) {
+            stale.sort((a, b) => b.age - a.age);
+            return stale[0].name;
+        }
+
+        // Everything explored and fresh — clear blacklist and start over
+        if (blacklist.length > 0) {
+            creep.memory.blacklist = [];
+        }
+
+        return null;
     }
 };
