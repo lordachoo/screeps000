@@ -15,8 +15,8 @@ module.exports = {
             this.updateRemoteRooms(room);
         }
 
-        // At RCL 4+ with GCL 2+, evaluate claim targets
-        if (rcl >= 4 && Game.gcl.level >= 2 && !Memory.expansion.claimTarget) {
+        // At RCL 3+ with GCL 2+, evaluate claim targets
+        if (rcl >= 3 && Game.gcl.level >= 2 && !Memory.expansion.claimTarget) {
             this.evaluateClaimTargets(room);
         }
     },
@@ -156,8 +156,8 @@ module.exports = {
             }
         }
 
-        // Claiming at RCL 5+
-        if (rcl >= 5 && Memory.expansion && Memory.expansion.claimTarget) {
+        // Claiming at RCL 3+
+        if (rcl >= 3 && Memory.expansion && Memory.expansion.claimTarget) {
             const targetRoom = Game.rooms[Memory.expansion.claimTarget];
             const alreadyClaimed = targetRoom && targetRoom.controller && targetRoom.controller.my;
 

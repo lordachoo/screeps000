@@ -30,10 +30,13 @@ module.exports = {
         }
         creep.memory.lastPos = posKey;
 
-        if (creep.memory.stuckTicks > 5) {
+        if (creep.memory.stuckTicks > 50) {
             console.log(`🔭 Scout: stuck, blacklisting ${creep.memory.target}`);
-            if (!creep.memory.blacklist) creep.memory.blacklist = [];
-            creep.memory.blacklist.push(creep.memory.target);
+            // Store blacklist in global Memory so it survives respawns
+            if (!Memory.scoutBlacklist) Memory.scoutBlacklist = [];
+            if (!Memory.scoutBlacklist.includes(creep.memory.target)) {
+                Memory.scoutBlacklist.push(creep.memory.target);
+            }
             creep.memory.target = null;
             creep.memory.stuckTicks = 0;
             return;
@@ -124,7 +127,7 @@ module.exports = {
 
     pickTarget(creep) {
         if (!Memory.roomIntel) Memory.roomIntel = {};
-        const blacklist = creep.memory.blacklist || [];
+        const blacklist = Memory.scoutBlacklist || [];
 
         // BFS from home to find all reachable rooms up to 10 away
         const homeRoom = creep.memory.homeRoom;
@@ -182,7 +185,7 @@ module.exports = {
 
         // Everything explored and fresh — clear blacklist and start over
         if (blacklist.length > 0) {
-            creep.memory.blacklist = [];
+            Memory.scoutBlacklist = [];
         }
 
         return null;
