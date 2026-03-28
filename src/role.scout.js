@@ -51,22 +51,32 @@ module.exports = {
         // Move to next waypoint
         const waypoint = creep.memory.waypoints[0];
         if (waypoint) {
-            const exitDir = creep.room.findExitTo(waypoint);
-            if (exitDir > 0) {
-                const exit = creep.pos.findClosestByPath(exitDir);
-                if (exit) {
-                    creep.moveTo(exit, { reusePath: 10 });
-                } else {
-                    // Can't find path to exit, try range-based
-                    const exitRange = creep.pos.findClosestByRange(exitDir);
-                    if (exitRange) {
-                        creep.moveTo(exitRange, { reusePath: 10 });
-                    }
-                }
+            // Use RoomPosition to navigate — handles cross-room pathing better
+            const dest = new RoomPosition(25, 25, waypoint);
+            const result = creep.moveTo(dest, { reusePath: 5 });
+
+            // If stuck for too long, skip this target
+            if (!creep.memory.stuckCount) creep.memory.stuckCount = 0;
+            if (result === ERR_NO_PATH || result === ERR_INVALID_TARGET) {
+                creep.memory.stuckCount++;
+            } else if (result === OK || result === ERR_TIRED) {
+                creep.memory.stuckCount = 0;
+            }
+
+            // Track position to detect being stuck
+            const posKey = creep.pos.x + ',' + creep.pos.y + ',' + creep.room.name;
+            if (creep.memory.lastPos === posKey) {
+                creep.memory.stuckCount++;
             } else {
-                // Invalid exit, clear and re-target
+                creep.memory.stuckCount = 0;
+            }
+            creep.memory.lastPos = posKey;
+
+            if (creep.memory.stuckCount > 10) {
+                console.log(`🔭 Scout stuck, skipping target ${creep.memory.target}`);
                 creep.memory.target = null;
                 creep.memory.waypoints = null;
+                creep.memory.stuckCount = 0;
             }
         }
     },
