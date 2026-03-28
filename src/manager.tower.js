@@ -1,6 +1,8 @@
 /**
  * Tower manager handles automated tower behavior.
  * Priority: attack hostiles > heal friendlies > repair structures.
+ * All towers focus-fire the same target (healers first).
+ * Auto-triggers safe mode if spawn is critically threatened.
  */
 module.exports = {
     run(room) {
@@ -15,12 +17,18 @@ module.exports = {
             filter: c => c.hits < c.hitsMax
         });
 
+        // Auto safe mode check
+        if (hostiles.length > 0) {
+            this.checkSafeMode(room, hostiles);
+        }
+
+        // Focus fire: all towers attack the same best target
+        const focusTarget = hostiles.length > 0 ? this.pickBestTarget(towers, hostiles) : null;
+
         for (const tower of towers) {
-            // Priority 1: Attack hostiles
-            if (hostiles.length > 0) {
-                // Target closest hostile for maximum damage
-                const target = tower.pos.findClosestByRange(hostiles);
-                tower.attack(target);
+            // Priority 1: Attack hostiles (focus fire)
+            if (focusTarget) {
+                tower.attack(focusTarget);
                 continue;
             }
 
@@ -33,6 +41,52 @@ module.exports = {
             // Priority 3: Repair damaged structures (only if tower has good energy)
             if (tower.store.getUsedCapacity(RESOURCE_ENERGY) > tower.store.getCapacity(RESOURCE_ENERGY) * 0.7) {
                 this.repairStructure(tower, room);
+            }
+        }
+    },
+
+    /**
+     * Score hostiles and pick the best focus-fire target.
+     * Healers die first — they sustain attacks.
+     */
+    pickBestTarget(towers, hostiles) {
+        // Use the first tower's position for distance calculation
+        const refPos = towers[0].pos;
+
+        return _.max(hostiles, h => {
+            const distance = refPos.getRangeTo(h);
+            return h.getActiveBodyparts(HEAL) * 3 +
+                   h.getActiveBodyparts(RANGED_ATTACK) * 2 +
+                   h.getActiveBodyparts(ATTACK) * 1 -
+                   distance * 0.5;
+        });
+    },
+
+    /**
+     * Auto-activate safe mode if spawn is critically threatened.
+     */
+    checkSafeMode(room, hostiles) {
+        const controller = room.controller;
+        if (!controller) return;
+        if (controller.safeModeCooldown > 0) return;
+        if (controller.safeModeAvailable <= 0) return;
+
+        // Check if any spawn is under direct threat
+        const spawns = room.find(FIND_MY_SPAWNS);
+        for (const spawn of spawns) {
+            // Spawn at less than 50% HP
+            if (spawn.hits < spawn.hitsMax * 0.5) {
+                controller.activateSafeMode();
+                console.log(`🛡️ ${room.name}: SAFE MODE ACTIVATED — spawn under attack!`);
+                return;
+            }
+
+            // 3+ hostiles within range 5 of spawn
+            const nearbyHostiles = spawn.pos.findInRange(hostiles, 5);
+            if (nearbyHostiles.length >= 3) {
+                controller.activateSafeMode();
+                console.log(`🛡️ ${room.name}: SAFE MODE ACTIVATED — ${nearbyHostiles.length} hostiles near spawn!`);
+                return;
             }
         }
     },

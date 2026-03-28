@@ -34,6 +34,22 @@ module.exports = {
 
         // Build containers near sources at RCL 2+
         if (rcl >= 2) this.buildContainers(room);
+
+        // Build ramparts on critical structures at RCL 3+
+        if (rcl >= 3) this.buildRamparts(room, spawn, rcl);
+
+        // Build links at RCL 5+
+        if (rcl >= 5) this.buildLinks(room, spawn, rcl);
+
+        // Build extractor + mineral container at RCL 6+
+        if (rcl >= 6) this.buildExtractor(room);
+        if (rcl >= 6) this.buildMineralContainer(room);
+
+        // Build terminal at RCL 6+
+        if (rcl >= 6) this.buildTerminal(room, spawn);
+
+        // Build labs at RCL 6+
+        if (rcl >= 6) this.buildLabs(room, spawn, rcl);
     },
 
     buildExtensions(room, spawn, rcl) {
@@ -173,6 +189,175 @@ module.exports = {
                 }
             }
         }
+    },
+
+    buildRamparts(room, spawn, rcl) {
+        // Only every 500 ticks
+        if (Game.time % 500 !== 0) return;
+
+        // Place ramparts on critical structures
+        const criticalTypes = [STRUCTURE_SPAWN, STRUCTURE_STORAGE, STRUCTURE_TERMINAL,
+                               STRUCTURE_TOWER, STRUCTURE_LINK];
+        const structures = room.find(FIND_MY_STRUCTURES, {
+            filter: s => criticalTypes.includes(s.structureType)
+        });
+
+        for (const structure of structures) {
+            const hasRampart = structure.pos.lookFor(LOOK_STRUCTURES).some(
+                s => s.structureType === STRUCTURE_RAMPART
+            );
+            const hasSite = structure.pos.lookFor(LOOK_CONSTRUCTION_SITES).some(
+                s => s.structureType === STRUCTURE_RAMPART
+            );
+            if (!hasRampart && !hasSite) {
+                room.createConstructionSite(structure.pos.x, structure.pos.y, STRUCTURE_RAMPART);
+            }
+        }
+    },
+
+    buildLinks(room, spawn, rcl) {
+        const maxLinks = { 5: 2, 6: 3, 7: 4, 8: 6 };
+        const existing = room.find(FIND_MY_STRUCTURES, {
+            filter: s => s.structureType === STRUCTURE_LINK
+        }).length;
+        const sites = room.find(FIND_CONSTRUCTION_SITES, {
+            filter: s => s.structureType === STRUCTURE_LINK
+        }).length;
+
+        const allowed = maxLinks[rcl] || 0;
+        if (existing + sites >= allowed) return;
+
+        const sources = room.find(FIND_SOURCES);
+        const terrain = room.getTerrain();
+
+        // Place source links first (near each source)
+        for (const source of sources) {
+            const hasLink = source.pos.findInRange(FIND_MY_STRUCTURES, 2, {
+                filter: s => s.structureType === STRUCTURE_LINK
+            }).length > 0;
+            const hasSite = source.pos.findInRange(FIND_CONSTRUCTION_SITES, 2, {
+                filter: s => s.structureType === STRUCTURE_LINK
+            }).length > 0;
+
+            if (!hasLink && !hasSite && existing + sites < allowed) {
+                if (this.placeNear(room, source.pos, STRUCTURE_LINK, 2)) return;
+            }
+        }
+
+        // Place controller link (within range 3-4 of controller)
+        const controller = room.controller;
+        const hasControllerLink = controller.pos.findInRange(FIND_MY_STRUCTURES, 4, {
+            filter: s => s.structureType === STRUCTURE_LINK
+        }).length > 0;
+        const hasControllerSite = controller.pos.findInRange(FIND_CONSTRUCTION_SITES, 4, {
+            filter: s => s.structureType === STRUCTURE_LINK
+        }).length > 0;
+
+        if (!hasControllerLink && !hasControllerSite && existing + sites < allowed) {
+            this.placeNear(room, controller.pos, STRUCTURE_LINK, 3);
+        }
+    },
+
+    buildExtractor(room) {
+        const mineral = room.find(FIND_MINERALS)[0];
+        if (!mineral) return;
+
+        const hasExtractor = mineral.pos.lookFor(LOOK_STRUCTURES).some(
+            s => s.structureType === STRUCTURE_EXTRACTOR
+        );
+        const hasSite = mineral.pos.lookFor(LOOK_CONSTRUCTION_SITES).some(
+            s => s.structureType === STRUCTURE_EXTRACTOR
+        );
+
+        if (!hasExtractor && !hasSite) {
+            room.createConstructionSite(mineral.pos.x, mineral.pos.y, STRUCTURE_EXTRACTOR);
+            console.log(`⛏️ ${room.name}: Placed extractor on mineral`);
+        }
+    },
+
+    buildMineralContainer(room) {
+        const mineral = room.find(FIND_MINERALS)[0];
+        if (!mineral) return;
+
+        const nearbyContainers = mineral.pos.findInRange(FIND_STRUCTURES, 1, {
+            filter: s => s.structureType === STRUCTURE_CONTAINER
+        });
+        const nearbySites = mineral.pos.findInRange(FIND_CONSTRUCTION_SITES, 1, {
+            filter: s => s.structureType === STRUCTURE_CONTAINER
+        });
+
+        if (nearbyContainers.length === 0 && nearbySites.length === 0) {
+            const terrain = room.getTerrain();
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    if (dx === 0 && dy === 0) continue;
+                    const x = mineral.pos.x + dx;
+                    const y = mineral.pos.y + dy;
+                    if (terrain.get(x, y) !== TERRAIN_MASK_WALL) {
+                        if (room.createConstructionSite(x, y, STRUCTURE_CONTAINER) === OK) return;
+                    }
+                }
+            }
+        }
+    },
+
+    buildTerminal(room, spawn) {
+        if (room.terminal) return;
+        const sites = room.find(FIND_CONSTRUCTION_SITES, {
+            filter: s => s.structureType === STRUCTURE_TERMINAL
+        });
+        if (sites.length > 0) return;
+
+        this.placeNearSpawn(room, spawn, STRUCTURE_TERMINAL, 1);
+    },
+
+    buildLabs(room, spawn, rcl) {
+        const maxLabs = { 6: 3, 7: 6, 8: 10 };
+        const existing = room.find(FIND_MY_STRUCTURES, {
+            filter: s => s.structureType === STRUCTURE_LAB
+        }).length;
+        const sites = room.find(FIND_CONSTRUCTION_SITES, {
+            filter: s => s.structureType === STRUCTURE_LAB
+        }).length;
+
+        const allowed = maxLabs[rcl] || 0;
+        const needed = allowed - existing - sites;
+        if (needed <= 0) return;
+
+        // Place labs in a cluster near storage or spawn
+        const center = room.storage ? room.storage.pos : spawn.pos;
+        this.placeNear(room, center, STRUCTURE_LAB, 4, Math.min(needed, 2));
+    },
+
+    /**
+     * Place a structure near a target position.
+     * Returns true if placed successfully.
+     */
+    placeNear(room, pos, structureType, maxRange, count) {
+        count = count || 1;
+        const terrain = room.getTerrain();
+        let placed = 0;
+
+        for (let radius = 1; radius <= maxRange && placed < count; radius++) {
+            for (let dx = -radius; dx <= radius && placed < count; dx++) {
+                for (let dy = -radius; dy <= radius && placed < count; dy++) {
+                    if (Math.abs(dx) !== radius && Math.abs(dy) !== radius) continue;
+                    const x = pos.x + dx;
+                    const y = pos.y + dy;
+                    if (x < 2 || x > 47 || y < 2 || y > 47) continue;
+                    if (terrain.get(x, y) === TERRAIN_MASK_WALL) continue;
+
+                    const structures = room.lookForAt(LOOK_STRUCTURES, x, y);
+                    const sites = room.lookForAt(LOOK_CONSTRUCTION_SITES, x, y);
+                    if (structures.length > 0 || sites.length > 0) continue;
+
+                    if (room.createConstructionSite(x, y, structureType) === OK) {
+                        placed++;
+                    }
+                }
+            }
+        }
+        return placed > 0;
     },
 
     placeNearSpawn(room, spawn, structureType, count) {

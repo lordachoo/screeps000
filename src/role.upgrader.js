@@ -24,6 +24,17 @@ module.exports = {
     },
 
     getEnergy(creep) {
+        // First priority: controller link (instant energy, no walking)
+        if (creep.room.memory.links && creep.room.memory.links.controller) {
+            const link = Game.getObjectById(creep.room.memory.links.controller);
+            if (link && link.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
+                if (creep.withdraw(link, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                    creep.moveTo(link, { reusePath: 5 });
+                }
+                return;
+            }
+        }
+
         // Prefer storage/containers, fall back to sources
         const storage = creep.room.storage;
         if (storage && storage.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {

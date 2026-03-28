@@ -14,8 +14,11 @@ const ROLES = {
     remoteMiner: { min: 0, priority: 8 },
     hauler:      { min: 0, priority: 9 },
     reserver:    { min: 0, priority: 10 },
-    claimer:     { min: 0, priority: 11 },
-    pioneer:     { min: 0, priority: 12 },
+    claimer:         { min: 0, priority: 11 },
+    pioneer:         { min: 0, priority: 12 },
+    mineralMiner:    { min: 0, priority: 13 },
+    labWorker:       { min: 0, priority: 14 },
+    rangedDefender:  { min: 0, priority: 6 },
 };
 
 module.exports = {
@@ -88,6 +91,40 @@ module.exports = {
         desired.builder = 2;
         desired.repairer = rcl >= 3 ? 1 : 0;
         desired.defender = 0;
+        desired.rangedDefender = 0;
+        desired.mineralMiner = 0;
+        desired.labWorker = 0;
+
+        // Ranged defender at RCL 4+ when hostiles present
+        if (rcl >= 4) {
+            const hostiles = room.find(FIND_HOSTILE_CREEPS);
+            if (hostiles.length > 0) {
+                desired.rangedDefender = 1;
+            }
+        }
+
+        // Mineral miner at RCL 6+ if extractor built and mineral has resources
+        if (rcl >= 6) {
+            const extractor = room.find(FIND_MY_STRUCTURES, {
+                filter: s => s.structureType === STRUCTURE_EXTRACTOR
+            });
+            if (extractor.length > 0) {
+                const mineral = room.find(FIND_MINERALS)[0];
+                if (mineral && mineral.mineralAmount > 0) {
+                    desired.mineralMiner = 1;
+                }
+            }
+        }
+
+        // Lab worker at RCL 6+ if 3+ labs built
+        if (rcl >= 6) {
+            const labs = room.find(FIND_MY_STRUCTURES, {
+                filter: s => s.structureType === STRUCTURE_LAB
+            });
+            if (labs.length >= 3) {
+                desired.labWorker = 1;
+            }
+        }
 
         // If we have storage and lots of energy, boost upgraders
         if (room.storage && room.storage.store.getUsedCapacity(RESOURCE_ENERGY) > 100000) {
@@ -138,9 +175,44 @@ module.exports = {
             case 'pioneer':
                 return this.scaledBody([WORK, CARRY, MOVE], [WORK, CARRY, MOVE], energy, 15);
 
+            // Phase 2 roles
+            case 'rangedDefender':
+                // TOUGH + RANGED_ATTACK + MOVE, with 1 HEAL at end for sustain
+                if (energy < 420) return null;
+                return this.buildRangedDefenderBody(energy);
+            case 'mineralMiner':
+                // Same as remoteMiner — 5 WORK to drain mineral
+                if (energy >= 650) return [WORK, WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE];
+                if (energy >= 400) return [WORK, WORK, WORK, MOVE, MOVE];
+                return null;
+            case 'labWorker':
+                // Pure CARRY + MOVE shuttle
+                if (energy >= 300) return [CARRY, CARRY, CARRY, CARRY, MOVE, MOVE];
+                return null;
+
             default:
                 return [WORK, CARRY, MOVE];
         }
+    },
+
+    buildRangedDefenderBody(energy) {
+        // Base: TOUGH, RANGED_ATTACK, MOVE, MOVE = 260 + 1 HEAL at end = 510 total min
+        // Scale up with extra RANGED_ATTACK + MOVE blocks
+        let body = [TOUGH, TOUGH, RANGED_ATTACK, MOVE, MOVE, MOVE];
+        let remaining = energy - 420;
+
+        // Add RANGED_ATTACK + MOVE pairs
+        while (remaining >= 200 && body.length + 2 <= 18) { // leave room for HEAL
+            body.push(RANGED_ATTACK, MOVE);
+            remaining -= 200;
+        }
+
+        // Add HEAL at the end if affordable
+        if (remaining >= 300 && body.length + 2 <= 20) {
+            body.push(HEAL, MOVE);
+        }
+
+        return body;
     },
 
     buildHaulerBody(energy) {

@@ -92,6 +92,19 @@ module.exports = {
             return;
         }
 
+        // If carrying non-energy resources (minerals), deliver to terminal or storage
+        for (const resourceType in creep.store) {
+            if (resourceType !== RESOURCE_ENERGY && creep.store.getUsedCapacity(resourceType) > 0) {
+                const dest = creep.room.terminal || creep.room.storage;
+                if (dest) {
+                    if (creep.transfer(dest, resourceType) === ERR_NOT_IN_RANGE) {
+                        creep.moveTo(dest, { reusePath: 5 });
+                    }
+                    return;
+                }
+            }
+        }
+
         // In home room — deliver energy (same priority as harvester)
         let target = creep.pos.findClosestByPath(FIND_MY_STRUCTURES, {
             filter: s => (s.structureType === STRUCTURE_SPAWN ||

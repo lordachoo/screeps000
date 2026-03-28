@@ -1,18 +1,32 @@
+// Home economy roles
 const roleHarvester = require('role.harvester');
 const roleUpgrader = require('role.upgrader');
 const roleBuilder = require('role.builder');
 const roleRepairer = require('role.repairer');
 const roleDefender = require('role.defender');
+
+// Expansion roles
 const roleScout = require('role.scout');
 const roleRemoteMiner = require('role.remoteMiner');
 const roleHauler = require('role.hauler');
 const roleReserver = require('role.reserver');
 const roleClaimer = require('role.claimer');
 const rolePioneer = require('role.pioneer');
+
+// Phase 2 roles
+const roleRangedDefender = require('role.rangedDefender');
+const roleMineralMiner = require('role.mineralMiner');
+const roleLabWorker = require('role.labWorker');
+
+// Managers
 const spawnManager = require('manager.spawn');
 const towerManager = require('manager.tower');
 const roomPlanner = require('manager.room');
 const expansionManager = require('manager.expansion');
+const linkManager = require('manager.link');
+const marketManager = require('manager.market');
+const labManager = require('manager.lab');
+const logisticsManager = require('manager.logistics');
 
 module.exports.loop = function () {
     // Clean up memory of dead creeps
@@ -38,7 +52,19 @@ module.exports.loop = function () {
 
         // Expansion management (remote mining, claiming)
         expansionManager.run(room);
+
+        // Link energy transfers (runs every tick)
+        linkManager.run(room);
+
+        // Market buy/sell (throttled)
+        marketManager.run(room);
+
+        // Lab reactions (throttled)
+        labManager.run(room);
     }
+
+    // Multi-room logistics (runs once, not per room)
+    logisticsManager.run();
 
     // Run creep roles
     for (const name in Game.creeps) {
@@ -77,6 +103,15 @@ module.exports.loop = function () {
                 break;
             case 'pioneer':
                 rolePioneer.run(creep);
+                break;
+            case 'rangedDefender':
+                roleRangedDefender.run(creep);
+                break;
+            case 'mineralMiner':
+                roleMineralMiner.run(creep);
+                break;
+            case 'labWorker':
+                roleLabWorker.run(creep);
                 break;
         }
     }
