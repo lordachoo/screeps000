@@ -60,7 +60,7 @@ module.exports = {
 
         while (queue.length > 0) {
             const current = queue.shift();
-            if (current.depth >= 4) continue;
+            if (current.depth >= 10) continue;
 
             const exits = Game.map.describeExits(current.name);
             if (!exits) continue;

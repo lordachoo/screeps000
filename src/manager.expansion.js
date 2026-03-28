@@ -15,8 +15,8 @@ module.exports = {
             this.updateRemoteRooms(room);
         }
 
-        // At RCL 5+ with GCL 2+, evaluate claim targets
-        if (rcl >= 5 && Game.gcl.level >= 2 && !Memory.expansion.claimTarget) {
+        // At RCL 4+ with GCL 2+, evaluate claim targets
+        if (rcl >= 4 && Game.gcl.level >= 2 && !Memory.expansion.claimTarget) {
             this.evaluateClaimTargets(room);
         }
     },
@@ -74,42 +74,52 @@ module.exports = {
         const ownedRooms = Object.values(Game.rooms).filter(r => r.controller && r.controller.my);
         if (ownedRooms.length >= Game.gcl.level) return;
 
-        const exits = Game.map.describeExits(room.name);
-        const adjacentRooms = Object.values(exits);
+        // Search all scouted rooms using BFS up to 4 rooms away
+        const visited = new Set([room.name]);
+        const queue = [{ name: room.name, depth: 0 }];
+        const candidates = [];
 
-        // Also check 2-away rooms
-        const candidates = [...adjacentRooms];
-        for (const adjRoom of adjacentRooms) {
-            const adjExits = Game.map.describeExits(adjRoom);
-            for (const farRoom of Object.values(adjExits)) {
-                if (!candidates.includes(farRoom) && farRoom !== room.name) {
-                    candidates.push(farRoom);
-                }
+        while (queue.length > 0) {
+            const current = queue.shift();
+            if (current.depth >= 4) continue;
+
+            const exits = Game.map.describeExits(current.name);
+            if (!exits) continue;
+
+            for (const nextRoom of Object.values(exits)) {
+                if (visited.has(nextRoom)) continue;
+                visited.add(nextRoom);
+                queue.push({ name: nextRoom, depth: current.depth + 1 });
+
+                const intel = Memory.roomIntel[nextRoom];
+                if (!intel) continue;
+                if (!intel.controller) continue;
+                if (intel.controller.owner) continue;
+                if (intel.sources.length === 0) continue;
+                if (intel.hostiles > 0) continue;
+
+                candidates.push({ name: nextRoom, intel, depth: current.depth + 1 });
             }
         }
 
+        if (candidates.length === 0) return;
+
+        // Score candidates: prefer 2-source rooms, then closer distance
         let bestRoom = null;
         let bestScore = -Infinity;
 
-        for (const roomName of candidates) {
-            const intel = Memory.roomIntel[roomName];
-            if (!intel) continue;
-            if (!intel.controller) continue;
-            if (intel.controller.owner) continue;
-            if (intel.sources.length < 2) continue; // Only claim 2-source rooms
-
-            const distance = Game.map.getRoomLinearDistance(room.name, roomName);
-            const score = intel.sources.length * 10 - distance * 5;
-
+        for (const candidate of candidates) {
+            const score = candidate.intel.sources.length * 10 - candidate.depth * 3;
             if (score > bestScore) {
                 bestScore = score;
-                bestRoom = roomName;
+                bestRoom = candidate.name;
             }
         }
 
         if (bestRoom) {
+            const sources = Memory.roomIntel[bestRoom].sources.length;
             Memory.expansion.claimTarget = bestRoom;
-            console.log(`🎯 ${room.name}: Claim target set to ${bestRoom}`);
+            console.log(`🎯 ${room.name}: Claim target set to ${bestRoom} (${sources} source${sources > 1 ? 's' : ''})`);
         }
     },
 
