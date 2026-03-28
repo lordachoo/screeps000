@@ -1,5 +1,5 @@
 /**
- * Scout explores adjacent rooms and stores intel in Memory.roomIntel.
+ * Scout explores rooms up to 4 rooms away and stores intel in Memory.roomIntel.
  * Cheap [MOVE] body (50 energy). Only 1 needed.
  */
 module.exports = {
@@ -14,7 +14,6 @@ module.exports = {
         // Pick next target if we don't have one, or we've arrived at current target
         if (!creep.memory.target || creep.room.name === creep.memory.target) {
             creep.memory.target = this.pickTarget(creep);
-            creep.memory.path = null; // Reset cached path
         }
 
         // Move to target room
@@ -53,51 +52,51 @@ module.exports = {
     pickTarget(creep) {
         if (!Memory.roomIntel) Memory.roomIntel = {};
 
-        // Get adjacent rooms
-        const exits = Game.map.describeExits(creep.memory.homeRoom);
-        const adjacentRooms = Object.values(exits);
+        // Build a map of all rooms up to 4 away using BFS
+        const homeRoom = creep.memory.homeRoom;
+        const visited = new Set([homeRoom]);
+        const queue = [{ name: homeRoom, depth: 0 }];
+        const rooms = []; // { name, depth, age }
 
-        // Build list: adjacent rooms first, then 2-away rooms
-        const targets = [];
+        while (queue.length > 0) {
+            const current = queue.shift();
+            if (current.depth >= 4) continue;
 
-        // Add adjacent rooms (scout these first)
-        for (const roomName of adjacentRooms) {
-            const intel = Memory.roomIntel[roomName];
-            const age = intel ? Game.time - intel.lastScouted : Infinity;
-            targets.push({ name: roomName, age, adjacent: true });
-        }
+            const exits = Game.map.describeExits(current.name);
+            if (!exits) continue;
 
-        // Add 2-away rooms (only after all adjacent are scouted)
-        const allAdjacentScouted = adjacentRooms.every(r => Memory.roomIntel[r]);
-        if (allAdjacentScouted) {
-            for (const adjRoom of adjacentRooms) {
-                const adjExits = Game.map.describeExits(adjRoom);
-                for (const farRoom of Object.values(adjExits)) {
-                    if (farRoom === creep.memory.homeRoom) continue;
-                    if (adjacentRooms.includes(farRoom)) continue;
-                    if (targets.some(t => t.name === farRoom)) continue;
+            for (const nextRoom of Object.values(exits)) {
+                if (visited.has(nextRoom)) continue;
+                visited.add(nextRoom);
 
-                    const intel = Memory.roomIntel[farRoom];
-                    const age = intel ? Game.time - intel.lastScouted : Infinity;
-                    targets.push({ name: farRoom, age, adjacent: false, via: adjRoom });
-                }
+                const intel = Memory.roomIntel[nextRoom];
+                const age = intel ? Game.time - intel.lastScouted : Infinity;
+
+                rooms.push({ name: nextRoom, depth: current.depth + 1, age });
+                queue.push({ name: nextRoom, depth: current.depth + 1 });
             }
         }
 
-        // Pick the oldest/unscouted room
-        // Prefer unscouted rooms, then oldest intel
-        targets.sort((a, b) => b.age - a.age);
-
-        // Filter to rooms that need scouting (never scouted or older than 5000 ticks)
-        const needsScouting = targets.filter(t => t.age > 5000);
+        // Pick rooms that need scouting: never scouted or older than 5000 ticks
+        const needsScouting = rooms.filter(r => r.age > 5000);
 
         if (needsScouting.length > 0) {
+            // Prefer closer unscouted rooms first, then oldest
+            needsScouting.sort((a, b) => {
+                if (a.age === Infinity && b.age !== Infinity) return -1;
+                if (b.age === Infinity && a.age !== Infinity) return 1;
+                if (a.depth !== b.depth) return a.depth - b.depth;
+                return b.age - a.age;
+            });
             return needsScouting[0].name;
         }
 
-        // All rooms are fresh — cycle through adjacent rooms sequentially
-        if (!creep.memory.cycleIndex) creep.memory.cycleIndex = 0;
-        creep.memory.cycleIndex = (creep.memory.cycleIndex + 1) % adjacentRooms.length;
-        return adjacentRooms[creep.memory.cycleIndex];
+        // Everything is fresh — re-scout the closest room with oldest intel
+        rooms.sort((a, b) => {
+            if (a.depth !== b.depth) return a.depth - b.depth;
+            return b.age - a.age;
+        });
+
+        return rooms.length > 0 ? rooms[0].name : null;
     }
 };
