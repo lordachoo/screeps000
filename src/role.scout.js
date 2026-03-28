@@ -72,7 +72,7 @@ module.exports = {
             }
             creep.memory.lastPos = posKey;
 
-            if (creep.memory.stuckCount > 10) {
+            if (creep.memory.stuckCount > 5) {
                 console.log(`🔭 Scout stuck, skipping target ${creep.memory.target}`);
                 creep.memory.target = null;
                 creep.memory.waypoints = null;
@@ -158,8 +158,16 @@ module.exports = {
                 if (visited.has(nextRoom)) continue;
                 visited.add(nextRoom);
 
-                const intel = Memory.roomIntel[nextRoom];
-                const age = intel ? Game.time - intel.lastScouted : Infinity;
+                // Skip rooms we know are owned by hostile players
+                const knownIntel = Memory.roomIntel[nextRoom];
+                const isHostile = knownIntel && knownIntel.controller &&
+                    knownIntel.controller.owner && knownIntel.controller.owner !== Memory.username;
+
+                // Still add to visited but don't explore through hostile rooms
+                // and don't add them as scout targets
+                if (isHostile) continue;
+
+                const age = knownIntel ? Game.time - knownIntel.lastScouted : Infinity;
 
                 rooms.push({ name: nextRoom, depth: current.depth + 1, age });
                 queue.push({ name: nextRoom, depth: current.depth + 1 });
