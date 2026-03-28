@@ -68,10 +68,10 @@ module.exports = {
         const sorted = Object.keys(ROLES).sort((a, b) => ROLES[a].priority - ROLES[b].priority);
         for (const role of sorted) {
             if (counts[role] < (desired[role] || 0)) {
-                const body = this.getBody(role, energyAvailable, energyCapacity);
+                const body = this.getBody(role, energyCapacity, energyCapacity);
                 if (!body) continue; // Can't afford this role yet
 
-                // Only spawn if we have at least 80% energy capacity (unless emergency)
+                // Wait until we have enough energy to spawn the full-size body
                 const bodyCost = this.bodyCost(body);
                 if (energyAvailable >= bodyCost) {
                     this.spawnCreep(spawn, role, body, room);
