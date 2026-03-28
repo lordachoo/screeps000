@@ -36,6 +36,11 @@ module.exports.loop = function () {
         }
     }
 
+    // Stats dashboard — log every 100 ticks (~3 min)
+    if (Game.time % 100 === 0) {
+        reportStats();
+    }
+
     // Run each owned room
     for (const roomName in Game.rooms) {
         const room = Game.rooms[roomName];
@@ -116,3 +121,64 @@ module.exports.loop = function () {
         }
     }
 };
+
+function reportStats() {
+    for (const roomName in Game.rooms) {
+        const room = Game.rooms[roomName];
+        if (!room.controller || !room.controller.my) continue;
+
+        const ctrl = room.controller;
+        const progress = ctrl.progress;
+        const total = ctrl.progressTotal;
+        const pct = total ? (progress / total * 100).toFixed(1) : 0;
+
+        // Track progress/hour
+        if (!Memory.stats) Memory.stats = {};
+        if (!Memory.stats[roomName]) Memory.stats[roomName] = { lastProgress: 0, lastTick: 0 };
+
+        const stats = Memory.stats[roomName];
+        const tickDelta = Game.time - stats.lastTick;
+        const progressDelta = progress - stats.lastProgress;
+
+        // Calculate per-hour rate (1 tick ≈ 2-3 seconds, ~1200-1800 ticks/hour)
+        let perHour = 0;
+        if (tickDelta > 0 && stats.lastTick > 0) {
+            const perTick = progressDelta / tickDelta;
+            perHour = Math.round(perTick * 1500); // ~1500 ticks/hour average
+        }
+
+        // Estimate time to next level
+        let eta = '';
+        if (perHour > 0) {
+            const remaining = total - progress;
+            const hoursLeft = remaining / perHour;
+            if (hoursLeft < 1) {
+                eta = Math.round(hoursLeft * 60) + 'min';
+            } else {
+                eta = hoursLeft.toFixed(1) + 'hrs';
+            }
+        }
+
+        // Count creeps by role
+        const roles = {};
+        for (const name in Game.creeps) {
+            const creep = Game.creeps[name];
+            const home = creep.memory.homeRoom || creep.room.name;
+            if (home === roomName) {
+                roles[creep.memory.role] = (roles[creep.memory.role] || 0) + 1;
+            }
+        }
+        const creepSummary = Object.entries(roles).map(([r, c]) => `${r}:${c}`).join(' ');
+
+        // Energy stats
+        const stored = room.storage ? room.storage.store.getUsedCapacity(RESOURCE_ENERGY) : 0;
+        const energyStr = stored > 0 ? ` | Stored: ${(stored / 1000).toFixed(1)}k` : '';
+
+        console.log(`📊 ${roomName} | RCL ${ctrl.level} ${pct}% (${progress}/${total}) | ${perHour}/hr | ETA: ${eta || '---'} | CPU: ${Game.cpu.getUsed().toFixed(1)}${energyStr}`);
+        console.log(`   Creeps: ${creepSummary}`);
+
+        // Update tracking
+        stats.lastProgress = progress;
+        stats.lastTick = Game.time;
+    }
+}
