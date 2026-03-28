@@ -1,6 +1,7 @@
 /**
- * Scout explores rooms up to 4 rooms away and stores intel in Memory.roomIntel.
+ * Scout explores rooms up to 10 rooms away and stores intel in Memory.roomIntel.
  * Cheap [MOVE] body (50 energy). Only 1 needed.
+ * Uses a waypoint system to navigate through rooms one at a time.
  */
 module.exports = {
     run(creep) {
@@ -11,15 +12,62 @@ module.exports = {
             this.recordIntel(creep.room);
         }
 
-        // Pick next target if we don't have one, or we've arrived at current target
+        // Pick next final target if we don't have one, or we've arrived at it
         if (!creep.memory.target || creep.room.name === creep.memory.target) {
-            creep.memory.target = this.pickTarget(creep);
+            const newTarget = this.pickTarget(creep);
+            creep.memory.target = newTarget;
+            creep.memory.waypoints = null; // Clear waypoints to recalculate
+            if (newTarget) {
+                console.log(`🔭 Scout targeting ${newTarget}`);
+            }
         }
 
-        // Move to target room
-        if (creep.memory.target && creep.room.name !== creep.memory.target) {
-            const target = new RoomPosition(25, 25, creep.memory.target);
-            creep.moveTo(target, { reusePath: 20 });
+        if (!creep.memory.target) return;
+
+        // Build waypoint path if we don't have one
+        if (!creep.memory.waypoints || creep.memory.waypoints.length === 0) {
+            const path = this.findRoomPath(creep.room.name, creep.memory.target);
+            if (path && path.length > 0) {
+                creep.memory.waypoints = path;
+            } else {
+                // Can't path there, pick a new target next tick
+                creep.memory.target = null;
+                return;
+            }
+        }
+
+        // Move toward current waypoint (next room in the path)
+        const nextRoom = creep.memory.waypoints[0];
+
+        if (creep.room.name === nextRoom) {
+            // Arrived at this waypoint, advance to next
+            creep.memory.waypoints.shift();
+            if (creep.memory.waypoints.length === 0) {
+                // Arrived at final target
+                return;
+            }
+        }
+
+        // Move to next waypoint
+        const waypoint = creep.memory.waypoints[0];
+        if (waypoint) {
+            const exitDir = creep.room.findExitTo(waypoint);
+            if (exitDir > 0) {
+                const exit = creep.pos.findClosestByPath(exitDir);
+                if (exit) {
+                    creep.moveTo(exit, { reusePath: 10 });
+                } else {
+                    // Can't find path to exit, try range-based
+                    const exitRange = creep.pos.findClosestByRange(exitDir);
+                    if (exitRange) {
+                        creep.moveTo(exitRange, { reusePath: 10 });
+                    }
+                }
+            } else {
+                // Invalid exit, clear and re-target
+                creep.memory.target = null;
+                creep.memory.waypoints = null;
+            }
         }
     },
 
@@ -49,14 +97,45 @@ module.exports = {
         };
     },
 
+    /**
+     * Find a room-level path from start to target using BFS.
+     * Returns array of room names to traverse (excluding start room).
+     */
+    findRoomPath(startRoom, targetRoom) {
+        if (startRoom === targetRoom) return [];
+
+        const visited = new Set([startRoom]);
+        const queue = [{ name: startRoom, path: [] }];
+
+        while (queue.length > 0) {
+            const current = queue.shift();
+            if (current.path.length >= 12) continue;
+
+            const exits = Game.map.describeExits(current.name);
+            if (!exits) continue;
+
+            for (const nextRoom of Object.values(exits)) {
+                if (visited.has(nextRoom)) continue;
+                visited.add(nextRoom);
+
+                const newPath = [...current.path, nextRoom];
+                if (nextRoom === targetRoom) return newPath;
+
+                queue.push({ name: nextRoom, path: newPath });
+            }
+        }
+
+        return null; // No path found
+    },
+
     pickTarget(creep) {
         if (!Memory.roomIntel) Memory.roomIntel = {};
 
-        // Build a map of all rooms up to 4 away using BFS
+        // Build a map of all rooms up to 10 away using BFS
         const homeRoom = creep.memory.homeRoom;
         const visited = new Set([homeRoom]);
         const queue = [{ name: homeRoom, depth: 0 }];
-        const rooms = []; // { name, depth, age }
+        const rooms = [];
 
         while (queue.length > 0) {
             const current = queue.shift();
@@ -77,26 +156,23 @@ module.exports = {
             }
         }
 
-        // Pick rooms that need scouting: never scouted or older than 5000 ticks
-        const needsScouting = rooms.filter(r => r.age > 5000);
+        // Pick rooms that need scouting: never scouted or older than 10000 ticks
+        const needsScouting = rooms.filter(r => r.age > 10000);
 
         if (needsScouting.length > 0) {
-            // Prefer closer unscouted rooms first, then oldest
+            // Prefer unscouted first, then closer, then oldest
             needsScouting.sort((a, b) => {
-                if (a.age === Infinity && b.age !== Infinity) return -1;
-                if (b.age === Infinity && a.age !== Infinity) return 1;
+                const aUnscouted = a.age === Infinity ? 1 : 0;
+                const bUnscouted = b.age === Infinity ? 1 : 0;
+                if (aUnscouted !== bUnscouted) return bUnscouted - aUnscouted;
                 if (a.depth !== b.depth) return a.depth - b.depth;
                 return b.age - a.age;
             });
             return needsScouting[0].name;
         }
 
-        // Everything is fresh — re-scout the closest room with oldest intel
-        rooms.sort((a, b) => {
-            if (a.depth !== b.depth) return a.depth - b.depth;
-            return b.age - a.age;
-        });
-
+        // Everything is fresh — cycle through rooms by depth
+        rooms.sort((a, b) => b.age - a.age);
         return rooms.length > 0 ? rooms[0].name : null;
     }
 };
