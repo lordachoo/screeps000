@@ -2,12 +2,20 @@
  * Spawn manager handles creep population and body composition.
  * Scales creep bodies with available energy capacity.
  */
+const expansionManager = require('manager.expansion');
+
 const ROLES = {
-    harvester:  { min: 2, priority: 1 },
-    upgrader:   { min: 2, priority: 3 },
-    builder:    { min: 2, priority: 4 },
-    repairer:   { min: 1, priority: 5 },
-    defender:   { min: 0, priority: 6 },
+    harvester:   { min: 2, priority: 1 },
+    upgrader:    { min: 2, priority: 3 },
+    builder:     { min: 2, priority: 4 },
+    repairer:    { min: 1, priority: 5 },
+    defender:    { min: 0, priority: 6 },
+    scout:       { min: 0, priority: 7 },
+    remoteMiner: { min: 0, priority: 8 },
+    hauler:      { min: 0, priority: 9 },
+    reserver:    { min: 0, priority: 10 },
+    claimer:     { min: 0, priority: 11 },
+    pioneer:     { min: 0, priority: 12 },
 };
 
 module.exports = {
@@ -19,12 +27,13 @@ module.exports = {
         const energyAvailable = room.energyAvailable;
         const energyCapacity = room.energyCapacityAvailable;
 
-        // Count creeps by role in this room
+        // Count creeps by role belonging to this room (using homeRoom memory)
         const counts = {};
         for (const role in ROLES) counts[role] = 0;
         for (const name in Game.creeps) {
             const creep = Game.creeps[name];
-            if (creep.room.name === room.name && counts[creep.memory.role] !== undefined) {
+            const home = creep.memory.homeRoom || creep.room.name;
+            if (home === room.name && counts[creep.memory.role] !== undefined) {
                 counts[creep.memory.role]++;
             }
         }
@@ -55,11 +64,14 @@ module.exports = {
         // Sort by priority, spawn the first role that's under count
         const sorted = Object.keys(ROLES).sort((a, b) => ROLES[a].priority - ROLES[b].priority);
         for (const role of sorted) {
-            if (counts[role] < desired[role]) {
+            if (counts[role] < (desired[role] || 0)) {
+                const body = this.getBody(role, energyAvailable, energyCapacity);
+                if (!body) continue; // Can't afford this role yet
+
                 // Only spawn if we have at least 80% energy capacity (unless emergency)
-                if (energyAvailable >= Math.min(energyCapacity * 0.8, 300)) {
-                    const body = this.getBody(role, energyAvailable);
-                    this.spawnCreep(spawn, role, body);
+                const bodyCost = this.bodyCost(body);
+                if (energyAvailable >= bodyCost) {
+                    this.spawnCreep(spawn, role, body, room);
                 }
                 return;
             }
@@ -70,6 +82,7 @@ module.exports = {
         const rcl = room.controller.level;
         const desired = {};
 
+        // Home economy roles
         desired.harvester = rcl >= 4 ? 3 : 2;
         desired.upgrader = rcl >= 6 ? 2 : (rcl >= 4 ? 3 : 2);
         desired.builder = 2;
@@ -81,10 +94,14 @@ module.exports = {
             desired.upgrader = Math.min(desired.upgrader + 2, 5);
         }
 
+        // Expansion roles from expansion manager
+        const expansionCounts = expansionManager.getDesiredExpansionCreeps(room);
+        Object.assign(desired, expansionCounts);
+
         return desired;
     },
 
-    getBody(role, energy) {
+    getBody(role, energy, capacity) {
         switch (role) {
             case 'harvester':
                 return this.scaledBody([WORK, CARRY, MOVE], [WORK, CARRY, MOVE], energy, 15);
@@ -96,9 +113,48 @@ module.exports = {
                 return this.scaledBody([WORK, CARRY, MOVE], [WORK, CARRY, MOVE], energy, 12);
             case 'defender':
                 return this.scaledBody([TOUGH, ATTACK, MOVE, MOVE], [TOUGH, ATTACK, MOVE, MOVE], energy, 20);
+
+            // Expansion roles
+            case 'scout':
+                return energy >= 50 ? [MOVE] : null;
+            case 'remoteMiner':
+                // 5 WORK = 10 energy/tick, exactly drains a source. 3 MOVE for road speed.
+                if (energy >= 650) return [WORK, WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE];
+                if (energy >= 400) return [WORK, WORK, WORK, MOVE, MOVE];
+                return null;
+            case 'hauler':
+                // 1 WORK for container repair + CARRY/MOVE scaled. Min: WORK + CARRY*2 + MOVE*2 = 250
+                if (energy < 250) return null;
+                return this.buildHaulerBody(energy);
+            case 'reserver':
+                // Need exactly 1300 energy for 2 CLAIM + 2 MOVE
+                if (energy >= 1300) return [CLAIM, CLAIM, MOVE, MOVE];
+                return null;
+            case 'claimer':
+                // CLAIM + fast MOVE parts
+                if (energy >= 850) return [CLAIM, MOVE, MOVE, MOVE, MOVE, MOVE];
+                if (energy >= 650) return [CLAIM, MOVE];
+                return null;
+            case 'pioneer':
+                return this.scaledBody([WORK, CARRY, MOVE], [WORK, CARRY, MOVE], energy, 15);
+
             default:
                 return [WORK, CARRY, MOVE];
         }
+    },
+
+    buildHaulerBody(energy) {
+        // Start with 1 WORK for repairs, then stack CARRY + MOVE (2:1 ratio for roads)
+        let body = [WORK, CARRY, MOVE, MOVE]; // 250 base
+        let remaining = energy - 250;
+        const extraCost = 150; // CARRY, CARRY, MOVE
+
+        while (remaining >= extraCost && body.length + 3 <= 20) {
+            body.push(CARRY, CARRY, MOVE);
+            remaining -= extraCost;
+        }
+
+        return body;
     },
 
     /**
@@ -118,8 +174,6 @@ module.exports = {
             remaining -= extraCost;
         }
 
-        // Sort: TOUGH first, WORK, CARRY, MOVE, ATTACK last (move last gets hit first = bad)
-        // Actually keep MOVE spread throughout for fatigue management
         return body;
     },
 
@@ -131,11 +185,73 @@ module.exports = {
         return parts.reduce((sum, p) => sum + (costs[p] || 0), 0);
     },
 
-    spawnCreep(spawn, role, body) {
+    spawnCreep(spawn, role, body, room) {
         const name = role.charAt(0).toUpperCase() + role.slice(1) + '_' + Game.time;
-        const result = spawn.spawnCreep(body, name, { memory: { role, harvesting: true } });
+        const memory = { role, harvesting: true, homeRoom: spawn.room.name };
+
+        // Set target room for expansion roles
+        if (Memory.expansion) {
+            if ((role === 'remoteMiner' || role === 'hauler') && Memory.expansion.remoteRooms) {
+                const assignment = this.assignRemoteTarget(role, spawn.room.name);
+                if (assignment) {
+                    memory.targetRoom = assignment.room;
+                    memory.sourceId = assignment.sourceId;
+                }
+            }
+            if (role === 'reserver' && Memory.expansion.remoteRooms) {
+                const unassigned = this.findUnreservedRoom(spawn.room.name);
+                if (unassigned) memory.targetRoom = unassigned;
+            }
+            if ((role === 'claimer' || role === 'pioneer') && Memory.expansion.claimTarget) {
+                memory.targetRoom = Memory.expansion.claimTarget;
+            }
+        }
+
+        const result = spawn.spawnCreep(body, name, { memory });
         if (result === OK) {
             console.log(`🟢 ${spawn.room.name}: Spawning ${name} [${body}]`);
         }
+    },
+
+    assignRemoteTarget(role, homeRoomName) {
+        if (!Memory.expansion || !Memory.expansion.remoteRooms) return null;
+
+        // Find which remote source has fewest assigned creeps of this role
+        let bestRoom = null;
+        let bestSource = null;
+        let lowestCount = Infinity;
+
+        for (const remote of Memory.expansion.remoteRooms) {
+            for (const sourceId of remote.sources) {
+                const count = _.filter(Game.creeps, c =>
+                    c.memory.role === role &&
+                    c.memory.homeRoom === homeRoomName &&
+                    c.memory.sourceId === sourceId
+                ).length;
+
+                if (count < lowestCount) {
+                    lowestCount = count;
+                    bestRoom = remote.name;
+                    bestSource = sourceId;
+                }
+            }
+        }
+
+        return bestRoom ? { room: bestRoom, sourceId: bestSource } : null;
+    },
+
+    findUnreservedRoom(homeRoomName) {
+        if (!Memory.expansion || !Memory.expansion.remoteRooms) return null;
+
+        for (const remote of Memory.expansion.remoteRooms) {
+            if (!remote.reserved) continue;
+            const existing = _.filter(Game.creeps, c =>
+                c.memory.role === 'reserver' &&
+                c.memory.homeRoom === homeRoomName &&
+                c.memory.targetRoom === remote.name
+            );
+            if (existing.length === 0) return remote.name;
+        }
+        return null;
     }
 };

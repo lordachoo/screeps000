@@ -3,9 +3,16 @@ const roleUpgrader = require('role.upgrader');
 const roleBuilder = require('role.builder');
 const roleRepairer = require('role.repairer');
 const roleDefender = require('role.defender');
+const roleScout = require('role.scout');
+const roleRemoteMiner = require('role.remoteMiner');
+const roleHauler = require('role.hauler');
+const roleReserver = require('role.reserver');
+const roleClaimer = require('role.claimer');
+const rolePioneer = require('role.pioneer');
 const spawnManager = require('manager.spawn');
 const towerManager = require('manager.tower');
 const roomPlanner = require('manager.room');
+const expansionManager = require('manager.expansion');
 
 module.exports.loop = function () {
     // Clean up memory of dead creeps
@@ -28,6 +35,9 @@ module.exports.loop = function () {
 
         // Auto-build construction sites when we level up
         roomPlanner.run(room);
+
+        // Expansion management (remote mining, claiming)
+        expansionManager.run(room);
     }
 
     // Run creep roles
@@ -49,6 +59,24 @@ module.exports.loop = function () {
                 break;
             case 'defender':
                 roleDefender.run(creep);
+                break;
+            case 'scout':
+                roleScout.run(creep);
+                break;
+            case 'remoteMiner':
+                roleRemoteMiner.run(creep);
+                break;
+            case 'hauler':
+                roleHauler.run(creep);
+                break;
+            case 'reserver':
+                roleReserver.run(creep);
+                break;
+            case 'claimer':
+                roleClaimer.run(creep);
+                break;
+            case 'pioneer':
+                rolePioneer.run(creep);
                 break;
         }
     }

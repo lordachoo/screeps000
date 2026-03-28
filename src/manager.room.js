@@ -9,7 +9,12 @@ module.exports = {
 
         const rcl = room.controller.level;
         const spawn = room.find(FIND_MY_SPAWNS)[0];
+
+        // Handle newly claimed rooms with no spawn — pioneers will build it
         if (!spawn) return;
+
+        // Build remote mining infrastructure
+        if (rcl >= 3) this.buildRemoteInfrastructure(room);
 
         // Don't place too many sites at once — builders get overwhelmed
         const existingSites = room.find(FIND_CONSTRUCTION_SITES);
@@ -127,6 +132,49 @@ module.exports = {
      * Place structures in a spiral pattern around the spawn.
      * Returns how many were successfully placed.
      */
+    /**
+     * Build containers at remote mining sources.
+     * Only runs every 500 ticks. Requires visibility (creep in the room).
+     */
+    buildRemoteInfrastructure(room) {
+        if (Game.time % 500 !== 0) return;
+        if (!Memory.expansion || !Memory.expansion.remoteRooms) return;
+
+        for (const remote of Memory.expansion.remoteRooms) {
+            const remoteRoom = Game.rooms[remote.name];
+            if (!remoteRoom) continue; // No visibility
+
+            // Build containers near sources
+            const sources = remoteRoom.find(FIND_SOURCES);
+            for (const source of sources) {
+                const nearbyContainers = source.pos.findInRange(FIND_STRUCTURES, 1, {
+                    filter: s => s.structureType === STRUCTURE_CONTAINER
+                });
+                const nearbySites = source.pos.findInRange(FIND_CONSTRUCTION_SITES, 1, {
+                    filter: s => s.structureType === STRUCTURE_CONTAINER
+                });
+
+                if (nearbyContainers.length === 0 && nearbySites.length === 0) {
+                    const terrain = remoteRoom.getTerrain();
+                    for (let dx = -1; dx <= 1; dx++) {
+                        for (let dy = -1; dy <= 1; dy++) {
+                            if (dx === 0 && dy === 0) continue;
+                            const x = source.pos.x + dx;
+                            const y = source.pos.y + dy;
+                            if (terrain.get(x, y) !== TERRAIN_MASK_WALL) {
+                                if (remoteRoom.createConstructionSite(x, y, STRUCTURE_CONTAINER) === OK) {
+                                    console.log(`📦 ${remote.name}: Placed remote container at ${x},${y}`);
+                                    break;
+                                }
+                            }
+                        }
+                        // Break outer loop too if we placed one
+                    }
+                }
+            }
+        }
+    },
+
     placeNearSpawn(room, spawn, structureType, count) {
         const terrain = room.getTerrain();
         let placed = 0;
