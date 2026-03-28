@@ -1,0 +1,12 @@
+{
+  "name": "screeps000",
+  "version": "1.0.0",
+  "description": "Screeps AI starter kit",
+  "scripts": {
+    "push-main": "screeps-api upload --server main --branch default --dir src",
+    "push-sim": "screeps-api upload --server main --branch sim --dir src"
+  },
+  "devDependencies": {
+    "screeps-api": "^1.14.1"
+  }
+}

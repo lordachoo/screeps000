@@ -1,0 +1,17 @@
+# Copy this to .screeps.yaml and fill in your credentials.
+# Get your auth token from https://screeps.com/a/#!/account/auth-tokens
+
+# For the official server:
+servers:
+  main:
+    host: screeps.com
+    port: 443
+    secure: true
+    token: YOUR_AUTH_TOKEN_HERE
+
+# For a private server:
+#  private:
+#    host: localhost
+#    port: 21025
+#    secure: false
+#    password: YOUR_PASSWORD_HERE
