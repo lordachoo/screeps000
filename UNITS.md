@@ -23,39 +23,80 @@ Creep max size: **50 parts**. Bodies are ordered — damaged parts at the front 
 
 ## Harvester
 
-**Priority:** 1 (highest — emergency spawn if count hits 0)
-**Role:** Mine energy sources and deliver to spawn/extensions/towers/storage/links
+**Priority:** 1 (emergency fallback only — no longer the primary energy role)
+**Role:** Emergency energy producer — only spawns if both miner AND basehauler are dead
 
-The backbone of the entire economy. Everything starves without harvesters.
-
-### Body scaling
-```
-Base:  [WORK, CARRY, MOVE]               — 200 energy
-Extra: [WORK, CARRY, MOVE] per chunk     — scales to energy cap, max 15 parts
-```
-
-At RCL 3 (800 cap): roughly `[WORK×3, CARRY×3, MOVE×3]` — solid mid-size harvester
-At RCL 5 (1800 cap): `[WORK×6, CARRY×6, MOVE×6]` or similar — drains a source fast
-
-### Delivery priority
-1. Spawn (if not full)
-2. Extensions (if not full)
-3. Towers (if under 80% energy)
-4. Source link (RCL 5+ — dumps into link instead of walking)
-5. Storage
-
-### Strategy
-- Spread across sources evenly (spawn manager assigns `sourceId` to balance load)
-- At RCL 5+ with links, harvesters near a source link dump energy into the link and barely move — very efficient
-- Emergency mode: if ALL harvesters die, spawn manager immediately creates a tiny `[WORK, CARRY, MOVE]` with just 200 energy regardless of queue
+Harvesters have been replaced by the miner + basehauler combo for normal operation. A single tiny `[WORK, CARRY, MOVE]` harvester spawns automatically if the room has zero energy producers, keeping the room alive until miners and basehaulers respawn.
 
 ### Console
 ```js
-// Harvester count
 Object.values(Game.creeps).filter(c => c.memory.role === 'harvester').length
+// Should normally be 0 — if >0, miner/basehauler died and emergency kicked in
+```
 
-// What source each harvester is assigned to
-Object.values(Game.creeps).filter(c => c.memory.role === 'harvester').map(c => ({name: c.name, source: c.memory.sourceId, carry: c.store.getUsedCapacity(RESOURCE_ENERGY)}))
+---
+
+## Miner
+
+**Priority:** 2
+**Unlocks:** RCL 1 (replaces harvesters)
+**Role:** Static miner for home room sources — no CARRY, mines continuously into container
+
+Parks on the container next to its assigned source and mines every tick. Energy drops directly into the container below it. Never moves after arrival. Identical pattern to remoteMiner but for home room.
+
+### Body
+```
+800+ energy:  [WORK×5, MOVE×3]   — 10 energy/tick, exactly saturates a source
+400+ energy:  [WORK×3, MOVE×2]   — partial rate
+```
+
+### Strategy
+- 1 miner per home source (1 for E13N53, more as rooms are added)
+- 5 WORK = 10 energy/tick = 100% source efficiency, never idles
+- Parks on container so energy goes directly in rather than dropping to ground
+- Basehauler collects from the container and delivers to spawn/extensions
+
+### Console
+```js
+Object.values(Game.creeps).filter(c => c.memory.role === 'miner').map(c => ({
+  name: c.name, source: c.memory.sourceId, pos: c.pos.x+','+c.pos.y
+}))
+```
+
+---
+
+## Basehauler
+
+**Priority:** 3
+**Unlocks:** RCL 1 (replaces harvesters)
+**Role:** Collects energy from home containers and delivers to spawn/extensions/towers/storage
+
+The delivery half of the miner+basehauler combo. Withdraws from home containers and keeps spawn, extensions, towers, and storage topped up. Has 1 WORK part for container repair.
+
+### Body
+```
+Same scaling as hauler — [WORK×1, CARRY×n, MOVE×n]
+At 800 cap: [WORK, CARRY×4, MOVE×3] — 350 carry capacity
+```
+
+### Delivery priority
+1. Source link (RCL 5+ — dumps into link instead of walking to spawn)
+2. Spawn / Extensions
+3. Tower (if under 80%)
+4. Storage
+5. Upgrade controller (fallback when nothing needs energy)
+
+### Strategy
+- 1 basehauler per home source — enough throughput for 10 energy/tick from one source
+- Has 1 WORK part to repair containers when they decay below 50% HP
+- Picks up dropped energy and tombstones as fallback if container is empty
+- Falls back to upgrading when spawn/extensions are all full
+
+### Console
+```js
+Object.values(Game.creeps).filter(c => c.memory.role === 'basehauler').map(c => ({
+  name: c.name, carry: c.store.getUsedCapacity(RESOURCE_ENERGY), harvesting: c.memory.harvesting
+}))
 ```
 
 ---
@@ -504,19 +545,21 @@ Game.rooms['E13N53'].memory.labTarget
 
 ## Spawn Priority Summary
 
-| Priority | Role | Min Count | Activates |
-|----------|------|-----------|-----------|
-| 1 | Harvester | 2-3 | RCL 1 |
-| 3 | Upgrader | 2-5 | RCL 1 |
-| 4 | Builder | 1-2 | RCL 1 |
-| 5 | Repairer | 0-1 | RCL 3 |
-| 6 | Defender | 0-2 | When hostiles present |
-| 6 | Ranged Defender | 0-1 | RCL 4 + hostiles |
-| 7 | Scout | 0-1 | RCL 2 |
-| 8 | Remote Miner | 0-4 | RCL 3 |
-| 9 | Hauler | 0-6 | RCL 3 |
-| 10 | Reserver | 0-2 | RCL 4 |
-| 11 | Claimer | 0-1 | RCL 3 + GCL 2 |
-| 12 | Pioneer | 0-4 | After room claimed |
-| 13 | Mineral Miner | 0-1 | RCL 6 + extractor |
-| 14 | Lab Worker | 0-1 | RCL 6 + 3 labs |
+| Priority | Role | Count | Activates |
+|----------|------|-------|-----------|
+| 1 | Harvester | 0 (emergency only) | Only if miner+basehauler both dead |
+| 2 | Miner | 1 per home source | RCL 1 |
+| 3 | Basehauler | 1 per home source | RCL 1 |
+| 4 | Upgrader | 2-5 | RCL 1 |
+| 5 | Builder | 1-2 | RCL 1 |
+| 6 | Repairer | 0-1 | RCL 3 |
+| 7 | Defender | 0-2 | When hostiles present |
+| 7 | Ranged Defender | 0-1 | RCL 4 + hostiles |
+| 8 | Scout | 0-1 | RCL 2 |
+| 9 | Remote Miner | 0-4 | RCL 3 |
+| 10 | Hauler | 0-6 | RCL 3 |
+| 11 | Reserver | 0-2 | RCL 4 |
+| 12 | Claimer | 0-1 | RCL 3 + GCL 2 |
+| 13 | Pioneer | 0-4 | After room claimed |
+| 14 | Mineral Miner | 0-1 | RCL 6 + extractor |
+| 15 | Lab Worker | 0-1 | RCL 6 + 3 labs |

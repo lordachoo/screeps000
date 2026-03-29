@@ -4,23 +4,20 @@ Planned features and improvements, roughly in priority order. Inspired partly by
 
 ---
 
-## In Progress
-- Pioneer bootstrap for E12N53 (claimed, needs spawn built)
+## Recently Completed
+- ✅ Pioneer bootstrap for E12N53 — spawn built, room coming online
+- ✅ **miner + basehauler roles** — replaced harvesters with static miner + dedicated hauler. ~40% more energy income from same source.
+- ✅ **Pioneer energy fixes** — pioneers pull from remote miner container, fill spawn on arrival, emergency controller upgrade at <3000 ticks
+- ✅ **Remote mining in owned rooms** — bot now correctly keeps mining claimed rooms until they have a working spawn
+- ✅ **Pioneer body capped at 6 parts** — spawns fast (200-400 energy) even when energy-starved
+- ✅ **Duplicate container bug fixed** — break bug and double-placement from owned+remote room both running buildContainers
+- ✅ **Auto-set Memory.username** — no longer needs manual console set
+- ✅ **Smarter pioneer spawn energy** — pioneered rooms stay in remote mining pool until spawn is complete
+- ✅ **Player whitelist / non-aggression pact** — `Memory.whitelist` array; towers, defenders, and ranged defenders all skip whitelisted players. See [WHITELIST.md](WHITELIST.md).
 
 ---
 
 ## Short Term (RCL 3-4)
-
-### basehauler role
-Dedicated creep for refilling extensions and towers in the home room.
-Currently harvesters do double duty (mine + deliver to spawn/extensions), wasting walking time.
-A basehauler withdraws from containers/storage and keeps extensions topped up continuously.
-**Impact:** Harvesters focus purely on mining → faster energy flow → spawn fills faster.
-
-### Smarter spawn energy threshold
-Pioneer body currently costs full 800 energy. In low-energy situations (like bootstrapping a new room)
-the spawn starves waiting for 800. Pioneers should use a small fixed body — they just need to get
-there and build, not be powerful.
 
 ### Scale remote rooms with RCL
 Currently capped at 1 remote room (RCL 3) and 2 (RCL 4). Should scale to 6 by RCL 8:

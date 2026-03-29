@@ -12,12 +12,15 @@ module.exports = {
 
         if (towers.length === 0) return;
 
-        const hostiles = room.find(FIND_HOSTILE_CREEPS);
+        const whitelist = Memory.whitelist || [];
+        const hostiles = room.find(FIND_HOSTILE_CREEPS, {
+            filter: c => !whitelist.includes(c.owner.username)
+        });
         const damagedCreeps = room.find(FIND_MY_CREEPS, {
             filter: c => c.hits < c.hitsMax
         });
 
-        // Auto safe mode check
+        // Auto safe mode check (only for non-whitelisted hostiles)
         if (hostiles.length > 0) {
             this.checkSafeMode(room, hostiles);
         }

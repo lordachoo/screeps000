@@ -4,7 +4,10 @@
  */
 module.exports = {
     run(creep) {
-        const hostiles = creep.room.find(FIND_HOSTILE_CREEPS);
+        const whitelist = Memory.whitelist || [];
+        const hostiles = creep.room.find(FIND_HOSTILE_CREEPS, {
+            filter: c => !whitelist.includes(c.owner.username)
+        });
 
         if (hostiles.length > 0) {
             this.fight(creep, hostiles);

@@ -232,6 +232,25 @@ delete Memory.stats
 
 ---
 
+## Diplomacy / Whitelist
+
+```js
+// View current whitelist
+Memory.whitelist
+
+// Add a player (they can pass through your rooms without being attacked)
+Memory.whitelist = Memory.whitelist || [];
+Memory.whitelist.push('Ricardo306');
+
+// Remove a player (resumes normal attack behavior)
+Memory.whitelist = Memory.whitelist.filter(n => n !== 'Ricardo306');
+
+// Clear entire whitelist
+delete Memory.whitelist;
+```
+
+---
+
 ## Emergency / Fixes
 
 ```js

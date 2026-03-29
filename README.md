@@ -19,6 +19,7 @@ Fully automated Screeps AI bot for the official server. Handles everything from 
 - **[BUILDINGS.md](BUILDINGS.md)** — Every structure explained: what it does, when it unlocks, strategy, and console verification commands
 - **[UNITS.md](UNITS.md)** — Every creep role explained: body composition, behavior, spawn priority, and strategy
 - **[ROADMAP.md](ROADMAP.md)** — Planned features and improvements (basehauler, rampart defenders, 7×7 layout, power raiding, etc.)
+- **[WHITELIST.md](WHITELIST.md)** — Non-aggression pact system: how to whitelist friendly players so towers/defenders ignore their creeps
 
 ## Architecture
 
