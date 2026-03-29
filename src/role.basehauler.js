@@ -55,6 +55,15 @@ module.exports = {
             if (creep.withdraw(tombstone, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
                 creep.moveTo(tombstone, { reusePath: 5 });
             }
+            return;
+        }
+
+        // Last resort: mine a source directly (no containers yet, e.g. new room bootstrap)
+        const source = creep.pos.findClosestByPath(FIND_SOURCES_ACTIVE);
+        if (source) {
+            if (creep.harvest(source) === ERR_NOT_IN_RANGE) {
+                creep.moveTo(source, { reusePath: 5, visualizePathStyle: { stroke: '#ffff00' } });
+            }
         }
     },
 
