@@ -45,6 +45,17 @@ module.exports = {
             return;
         }
 
+        // Loot tombstones
+        const tombstone = creep.pos.findClosestByPath(FIND_TOMBSTONES, {
+            filter: t => t.store.getUsedCapacity(RESOURCE_ENERGY) > 0
+        });
+        if (tombstone) {
+            if (creep.withdraw(tombstone, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                creep.moveTo(tombstone, { reusePath: 5, visualizePathStyle: { stroke: '#ffaa00' } });
+            }
+            return;
+        }
+
         // Pick up dropped energy
         const dropped = creep.pos.findClosestByPath(FIND_DROPPED_RESOURCES, {
             filter: r => r.resourceType === RESOURCE_ENERGY && r.amount > 50
