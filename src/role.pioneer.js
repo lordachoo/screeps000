@@ -50,6 +50,15 @@ module.exports = {
     },
 
     work(creep) {
+        // Priority 0: Emergency controller upgrade — if downgrade timer is critical, save the room first
+        const ctrl = creep.room.controller;
+        if (ctrl && ctrl.ticksToDowngrade < 3000) {
+            if (creep.upgradeController(ctrl) === ERR_NOT_IN_RANGE) {
+                creep.moveTo(ctrl, { reusePath: 5, visualizePathStyle: { stroke: '#ff0000' } });
+            }
+            return;
+        }
+
         // Priority 1: Fill spawn with energy so it can start spawning its own harvesters
         const spawn = creep.room.find(FIND_MY_SPAWNS)[0];
         if (spawn && spawn.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
