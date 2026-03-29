@@ -53,9 +53,15 @@ module.exports = {
             if (!intel.sources || intel.sources.length === 0) continue;
             if (intel.hostiles > 0) continue;
 
-            // Skip owned or reserved rooms (unless reserved by us)
+            // Skip owned or reserved rooms (unless owned/reserved by us)
             if (intel.controller) {
-                if (intel.controller.owner) continue;
+                if (intel.controller.owner) {
+                    // Skip rooms owned by other players
+                    if (intel.controller.owner !== Memory.username) continue;
+                    // Skip our own rooms that already have a spawn (self-sustaining)
+                    const liveRoom = Game.rooms[roomName];
+                    if (liveRoom && liveRoom.find(FIND_MY_SPAWNS).length > 0) continue;
+                }
                 if (intel.controller.reservedBy && intel.controller.reservedBy !== (Memory.username || '')) continue;
             }
 

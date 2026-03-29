@@ -29,6 +29,17 @@ const labManager = require('manager.lab');
 const logisticsManager = require('manager.logistics');
 
 module.exports.loop = function () {
+    // Cache username from owned room controller
+    if (!Memory.username) {
+        for (const roomName in Game.rooms) {
+            const room = Game.rooms[roomName];
+            if (room.controller && room.controller.my && room.controller.owner) {
+                Memory.username = room.controller.owner.username;
+                break;
+            }
+        }
+    }
+
     // Clean up memory of dead creeps
     for (const name in Memory.creeps) {
         if (!Game.creeps[name]) {

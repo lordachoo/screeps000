@@ -16,6 +16,8 @@ Fully automated Screeps AI bot for the official server. Handles everything from 
 
 - **[PROGRESSION.md](PROGRESSION.md)** — RCL-by-RCL checklist with console commands to verify each upgrade is working correctly
 - **[COMMAND-CHEATSHEET.md](COMMAND-CHEATSHEET.md)** — Quick reference for all in-game console commands (status, creeps, structures, expansion, labs, emergency fixes)
+- **[BUILDINGS.md](BUILDINGS.md)** — Every structure explained: what it does, when it unlocks, strategy, and console verification commands
+- **[UNITS.md](UNITS.md)** — Every creep role explained: body composition, behavior, spawn priority, and strategy
 
 ## Architecture
 

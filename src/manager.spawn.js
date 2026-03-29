@@ -58,9 +58,9 @@ module.exports = {
             desired.defender = Math.max(desired.defender, 2);
         }
 
-        // Reduce builders when no construction sites
+        // Reduce builders when few/no construction sites
         const sites = room.find(FIND_CONSTRUCTION_SITES);
-        if (sites.length === 0) {
+        if (sites.length <= 1) {
             desired.builder = 1;
         }
 
