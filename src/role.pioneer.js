@@ -50,7 +50,16 @@ module.exports = {
     },
 
     work(creep) {
-        // Priority 1: Build spawn (critical — room can't function without it)
+        // Priority 1: Fill spawn with energy so it can start spawning its own harvesters
+        const spawn = creep.room.find(FIND_MY_SPAWNS)[0];
+        if (spawn && spawn.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+            if (creep.transfer(spawn, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                creep.moveTo(spawn, { reusePath: 5, visualizePathStyle: { stroke: '#ffffff' } });
+            }
+            return;
+        }
+
+        // Priority 2: Build spawn site (critical — room can't function without it)
         const spawnSite = creep.room.find(FIND_CONSTRUCTION_SITES, {
             filter: s => s.structureType === STRUCTURE_SPAWN
         })[0];
@@ -62,9 +71,8 @@ module.exports = {
             return;
         }
 
-        // If no spawn site exists yet, place one near the controller
-        const spawns = creep.room.find(FIND_MY_SPAWNS);
-        if (spawns.length === 0) {
+        // If no spawn exists and no spawn site, place one near the controller
+        if (!spawn) {
             const sites = creep.room.find(FIND_CONSTRUCTION_SITES, {
                 filter: s => s.structureType === STRUCTURE_SPAWN
             });
@@ -73,7 +81,7 @@ module.exports = {
             }
         }
 
-        // Priority 2: Build other construction sites
+        // Priority 3: Build other construction sites
         const site = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES);
         if (site) {
             if (creep.build(site) === ERR_NOT_IN_RANGE) {
@@ -82,7 +90,7 @@ module.exports = {
             return;
         }
 
-        // Priority 3: Upgrade controller
+        // Priority 4: Upgrade controller
         if (creep.upgradeController(creep.room.controller) === ERR_NOT_IN_RANGE) {
             creep.moveTo(creep.room.controller, { reusePath: 5, visualizePathStyle: { stroke: '#8844ff' } });
         }
