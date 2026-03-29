@@ -99,6 +99,11 @@ module.exports = {
     },
 
     buildContainers(room) {
+        // Skip if this room is already handled by buildRemoteInfrastructure
+        const isRemote = Memory.expansion && Memory.expansion.remoteRooms &&
+            Memory.expansion.remoteRooms.some(r => r.name === room.name);
+        if (isRemote) return;
+
         const sources = room.find(FIND_SOURCES);
         for (const source of sources) {
             const nearbyContainers = source.pos.findInRange(FIND_STRUCTURES, 1, {
@@ -172,19 +177,19 @@ module.exports = {
 
                 if (nearbyContainers.length === 0 && nearbySites.length === 0) {
                     const terrain = remoteRoom.getTerrain();
-                    for (let dx = -1; dx <= 1; dx++) {
-                        for (let dy = -1; dy <= 1; dy++) {
+                    let placed = false;
+                    for (let dx = -1; dx <= 1 && !placed; dx++) {
+                        for (let dy = -1; dy <= 1 && !placed; dy++) {
                             if (dx === 0 && dy === 0) continue;
                             const x = source.pos.x + dx;
                             const y = source.pos.y + dy;
                             if (terrain.get(x, y) !== TERRAIN_MASK_WALL) {
                                 if (remoteRoom.createConstructionSite(x, y, STRUCTURE_CONTAINER) === OK) {
                                     console.log(`📦 ${remote.name}: Placed remote container at ${x},${y}`);
-                                    break;
+                                    placed = true;
                                 }
                             }
                         }
-                        // Break outer loop too if we placed one
                     }
                 }
             }

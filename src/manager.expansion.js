@@ -58,15 +58,9 @@ module.exports = {
                 if (intel.controller.owner) {
                     // Skip rooms owned by other players
                     if (intel.controller.owner !== Memory.username) continue;
-                    // Skip our own rooms that have a spawn or are being bootstrapped (spawn site exists)
+                    // Skip our own rooms that already have a completed spawn (self-sustaining)
                     const liveRoom = Game.rooms[roomName];
-                    if (liveRoom) {
-                        const hasSpawn = liveRoom.find(FIND_MY_SPAWNS).length > 0;
-                        const hasSpawnSite = liveRoom.find(FIND_CONSTRUCTION_SITES, {
-                            filter: s => s.structureType === STRUCTURE_SPAWN
-                        }).length > 0;
-                        if (hasSpawn || hasSpawnSite) continue;
-                    }
+                    if (liveRoom && liveRoom.find(FIND_MY_SPAWNS).length > 0) continue;
                 }
                 if (intel.controller.reservedBy && intel.controller.reservedBy !== (Memory.username || '')) continue;
             }
