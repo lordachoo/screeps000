@@ -173,7 +173,9 @@ module.exports = {
                 if (energy >= 650) return [CLAIM, MOVE];
                 return null;
             case 'pioneer':
-                return this.scaledBody([WORK, CARRY, MOVE], [WORK, CARRY, MOVE], energy, 15);
+                // Small body — just needs to reach the new room and build a spawn
+                // Cap at 6 parts (400 energy) so it spawns fast even when energy-starved
+                return this.scaledBody([WORK, CARRY, MOVE], [WORK, CARRY, MOVE], energy, 6);
 
             // Phase 2 roles
             case 'rangedDefender':
