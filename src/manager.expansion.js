@@ -58,9 +58,9 @@ module.exports = {
                 if (intel.controller.owner) {
                     // Skip rooms owned by other players
                     if (intel.controller.owner !== Memory.username) continue;
-                    // Skip our own rooms that already have a completed spawn (self-sustaining)
+                    // Skip our own rooms that are self-sustaining (RCL 3+)
                     const liveRoom = Game.rooms[roomName];
-                    if (liveRoom && liveRoom.find(FIND_MY_SPAWNS).length > 0) continue;
+                    if (liveRoom && liveRoom.controller && liveRoom.controller.level >= 3) continue;
                 }
                 if (intel.controller.reservedBy && intel.controller.reservedBy !== (Memory.username || '')) continue;
             }
@@ -176,9 +176,10 @@ module.exports = {
                     counts.claimer = 1;
                 }
             } else {
-                // Room is claimed — send pioneers if it has no spawn
+                // Room is claimed — send pioneers until it reaches RCL 3 (self-sustaining)
                 const hasSpawn = targetRoom.find(FIND_MY_SPAWNS).length > 0;
-                if (!hasSpawn) {
+                const targetRcl = targetRoom.controller ? targetRoom.controller.level : 0;
+                if (!hasSpawn || targetRcl < 3) {
                     counts.pioneer = 4;
                 }
             }
