@@ -19,6 +19,27 @@ module.exports = {
     },
 
     harvest(creep) {
+        // Grab dropped energy or tombstones first — free energy, no mining needed
+        const dropped = creep.pos.findClosestByPath(FIND_DROPPED_RESOURCES, {
+            filter: r => r.resourceType === RESOURCE_ENERGY && r.amount > 20
+        });
+        if (dropped) {
+            if (creep.pickup(dropped) === ERR_NOT_IN_RANGE) {
+                creep.moveTo(dropped, { reusePath: 5, visualizePathStyle: { stroke: '#ffaa00' } });
+            }
+            return;
+        }
+
+        const tombstone = creep.pos.findClosestByPath(FIND_TOMBSTONES, {
+            filter: t => t.store.getUsedCapacity(RESOURCE_ENERGY) > 20
+        });
+        if (tombstone) {
+            if (creep.withdraw(tombstone, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                creep.moveTo(tombstone, { reusePath: 5, visualizePathStyle: { stroke: '#ffaa00' } });
+            }
+            return;
+        }
+
         // Prefer assigned source to spread miners across sources
         let source;
         if (creep.memory.sourceId) {
