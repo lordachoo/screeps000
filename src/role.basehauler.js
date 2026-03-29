@@ -94,7 +94,15 @@ module.exports = {
         }
 
         if (!target) {
-            // Nothing needs energy — act as upgrader
+            // Nothing needs energy — help build construction sites first (we have 1 WORK part)
+            const site = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES);
+            if (site) {
+                if (creep.build(site) === ERR_NOT_IN_RANGE) {
+                    creep.moveTo(site, { reusePath: 5, visualizePathStyle: { stroke: '#33ff33' } });
+                }
+                return;
+            }
+            // Nothing to build either — upgrade controller
             if (creep.upgradeController(creep.room.controller) === ERR_NOT_IN_RANGE) {
                 creep.moveTo(creep.room.controller, { reusePath: 5 });
             }
