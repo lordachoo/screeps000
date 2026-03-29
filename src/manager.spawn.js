@@ -5,20 +5,22 @@
 const expansionManager = require('manager.expansion');
 
 const ROLES = {
-    harvester:   { min: 2, priority: 1 },
-    upgrader:    { min: 2, priority: 3 },
-    builder:     { min: 2, priority: 4 },
-    repairer:    { min: 1, priority: 5 },
-    defender:    { min: 0, priority: 6 },
-    scout:       { min: 0, priority: 7 },
-    remoteMiner: { min: 0, priority: 8 },
-    hauler:      { min: 0, priority: 9 },
-    reserver:    { min: 0, priority: 10 },
-    claimer:         { min: 0, priority: 11 },
-    pioneer:         { min: 0, priority: 12 },
-    mineralMiner:    { min: 0, priority: 13 },
-    labWorker:       { min: 0, priority: 14 },
-    rangedDefender:  { min: 0, priority: 6 },
+    harvester:       { min: 0, priority: 1 },  // Emergency fallback only
+    miner:           { min: 0, priority: 2 },
+    basehauler:      { min: 0, priority: 3 },
+    upgrader:        { min: 2, priority: 4 },
+    builder:         { min: 2, priority: 5 },
+    repairer:        { min: 1, priority: 6 },
+    defender:        { min: 0, priority: 7 },
+    rangedDefender:  { min: 0, priority: 7 },
+    scout:           { min: 0, priority: 8 },
+    remoteMiner:     { min: 0, priority: 9 },
+    hauler:          { min: 0, priority: 10 },
+    reserver:        { min: 0, priority: 11 },
+    claimer:         { min: 0, priority: 12 },
+    pioneer:         { min: 0, priority: 13 },
+    mineralMiner:    { min: 0, priority: 14 },
+    labWorker:       { min: 0, priority: 15 },
 };
 
 module.exports = {
@@ -41,8 +43,8 @@ module.exports = {
             }
         }
 
-        // Emergency mode: if we have 0 harvesters, spawn a tiny one immediately
-        if (counts.harvester === 0) {
+        // Emergency mode: if we have no energy producers at all, spawn a tiny harvester
+        if (counts.harvester === 0 && counts.miner === 0) {
             if (energyAvailable >= 200) {
                 this.spawnCreep(spawn, 'harvester', [WORK, CARRY, MOVE]);
             }
@@ -85,8 +87,11 @@ module.exports = {
         const rcl = room.controller.level;
         const desired = {};
 
-        // Home economy roles
-        desired.harvester = rcl >= 4 ? 3 : 2;
+        // Home economy — static miner + basehauler replaces harvesters
+        const homeSources = room.find(FIND_SOURCES);
+        desired.harvester = 0; // Emergency fallback only (handled above)
+        desired.miner = homeSources.length;
+        desired.basehauler = homeSources.length;
         desired.upgrader = rcl >= 6 ? 2 : (rcl >= 4 ? 3 : 2);
         desired.builder = 2;
         desired.repairer = rcl >= 3 ? 1 : 0;
@@ -150,6 +155,14 @@ module.exports = {
                 return this.scaledBody([WORK, CARRY, MOVE], [WORK, CARRY, MOVE], energy, 12);
             case 'defender':
                 return this.scaledBody([TOUGH, ATTACK, MOVE, MOVE], [TOUGH, ATTACK, MOVE, MOVE], energy, 20);
+
+            case 'miner':
+                // 5 WORK saturates a source at 10 energy/tick
+                if (energy >= 800) return [WORK, WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE];
+                if (energy >= 400) return [WORK, WORK, WORK, MOVE, MOVE];
+                return null;
+            case 'basehauler':
+                return this.buildHaulerBody(energy);
 
             // Expansion roles
             case 'scout':

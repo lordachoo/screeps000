@@ -1,5 +1,7 @@
 // Home economy roles
 const roleHarvester = require('role.harvester');
+const roleMiner = require('role.miner');
+const roleBasehauler = require('role.basehauler');
 const roleUpgrader = require('role.upgrader');
 const roleBuilder = require('role.builder');
 const roleRepairer = require('role.repairer');
@@ -89,6 +91,12 @@ module.exports.loop = function () {
         switch (creep.memory.role) {
             case 'harvester':
                 roleHarvester.run(creep);
+                break;
+            case 'miner':
+                roleMiner.run(creep);
+                break;
+            case 'basehauler':
+                roleBasehauler.run(creep);
                 break;
             case 'upgrader':
                 roleUpgrader.run(creep);
