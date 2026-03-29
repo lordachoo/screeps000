@@ -160,6 +160,7 @@ module.exports = {
                 // 5 WORK saturates a source at 10 energy/tick
                 if (energy >= 800) return [WORK, WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE];
                 if (energy >= 400) return [WORK, WORK, WORK, MOVE, MOVE];
+                if (energy >= 250) return [WORK, WORK, MOVE]; // Bootstrap: RCL1 rooms with 300 cap
                 return null;
             case 'basehauler':
                 return this.buildHaulerBody(energy);
