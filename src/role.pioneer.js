@@ -33,7 +33,30 @@ module.exports = {
     },
 
     harvest(creep) {
-        // Pick least-targeted source in the room
+        // Grab from containers first — remote miner keeps them full, no competition
+        const container = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+            filter: s => s.structureType === STRUCTURE_CONTAINER &&
+                         s.store.getUsedCapacity(RESOURCE_ENERGY) > 0
+        });
+        if (container) {
+            if (creep.withdraw(container, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                creep.moveTo(container, { reusePath: 5, visualizePathStyle: { stroke: '#ffaa00' } });
+            }
+            return;
+        }
+
+        // Pick up dropped energy
+        const dropped = creep.pos.findClosestByPath(FIND_DROPPED_RESOURCES, {
+            filter: r => r.resourceType === RESOURCE_ENERGY && r.amount > 50
+        });
+        if (dropped) {
+            if (creep.pickup(dropped) === ERR_NOT_IN_RANGE) {
+                creep.moveTo(dropped, { reusePath: 5, visualizePathStyle: { stroke: '#ffaa00' } });
+            }
+            return;
+        }
+
+        // Fall back to mining the source directly
         const sources = creep.room.find(FIND_SOURCES_ACTIVE);
         const source = _.min(sources, s => {
             return _.filter(Game.creeps, c =>
