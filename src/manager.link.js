@@ -39,8 +39,8 @@ module.exports = {
             }
         }
 
-        // Assign controller link (within range 4 of controller)
-        const controllerLink = controller.pos.findInRange(links, 4).find(
+        // Assign controller link (within range 6 of controller)
+        const controllerLink = controller.pos.findInRange(links, 6).find(
             l => !assignment.sources.includes(l.id)
         );
         if (controllerLink) {
