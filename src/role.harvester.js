@@ -41,6 +41,30 @@ module.exports = {
             return;
         }
 
+        // Pull from links (fastest fill)
+        const link = creep.pos.findClosestByPath(FIND_MY_STRUCTURES, {
+            filter: s => s.structureType === STRUCTURE_LINK &&
+                         s.store.getUsedCapacity(RESOURCE_ENERGY) > 0
+        });
+        if (link) {
+            if (creep.withdraw(link, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                creep.moveTo(link, { reusePath: 5, visualizePathStyle: { stroke: '#ffaa00' } });
+            }
+            return;
+        }
+
+        // Pull from containers
+        const container = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+            filter: s => s.structureType === STRUCTURE_CONTAINER &&
+                         s.store.getUsedCapacity(RESOURCE_ENERGY) > 50
+        });
+        if (container) {
+            if (creep.withdraw(container, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                creep.moveTo(container, { reusePath: 5, visualizePathStyle: { stroke: '#ffaa00' } });
+            }
+            return;
+        }
+
         // Prefer assigned source to spread miners across sources
         let source;
         if (creep.memory.sourceId) {
