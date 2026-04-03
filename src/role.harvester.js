@@ -41,12 +41,10 @@ module.exports = {
             return;
         }
 
-        // Pull from links (but not source links — we'd just put it back)
-        const sourceLinkIds = (creep.room.memory.links && creep.room.memory.links.sources) || [];
+        // Pull from links (fastest fill)
         const link = creep.pos.findClosestByPath(FIND_MY_STRUCTURES, {
             filter: s => s.structureType === STRUCTURE_LINK &&
-                         s.store.getUsedCapacity(RESOURCE_ENERGY) > 0 &&
-                         !sourceLinkIds.includes(s.id)
+                         s.store.getUsedCapacity(RESOURCE_ENERGY) > 0
         });
         if (link) {
             if (creep.withdraw(link, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
@@ -89,19 +87,6 @@ module.exports = {
     },
 
     deliver(creep) {
-        // At RCL 5+, dump into nearby source link if available
-        if (creep.room.controller.level >= 5 && creep.room.memory.links) {
-            const linkIds = creep.room.memory.links.sources || [];
-            for (const linkId of linkIds) {
-                const link = Game.getObjectById(linkId);
-                if (link && creep.pos.getRangeTo(link) <= 1 &&
-                    link.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
-                    creep.transfer(link, RESOURCE_ENERGY);
-                    return;
-                }
-            }
-        }
-
         // Priority: spawn/extensions > towers (below 80%) > storage
         let target = creep.pos.findClosestByPath(FIND_MY_STRUCTURES, {
             filter: s => (s.structureType === STRUCTURE_SPAWN ||
