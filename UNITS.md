@@ -367,14 +367,16 @@ Extra: [CARRY, CARRY, MOVE] per chunk     — 2:1 CARRY:MOVE ratio (roads halve 
 ```
 
 ### Delivery priority
-- Energy → home storage
+- Energy → nearest owned room's spawns/extensions → towers → storage → upgrade controller
 - Non-energy minerals → terminal first, then storage
 
 ### Strategy
+- **Delivers to nearest owned room** (not necessarily spawn room) — if a remote mine is closer to your 2nd room, the hauler delivers there instead of hauling 3 rooms back
 - 2:1 CARRY:MOVE ratio works because roads are built along the route
 - Uses 1 WORK part to repair the remote container when picking up (prevents decay)
 - Count scales with distance — longer routes need more haulers to maintain throughput
 - When carrying minerals, delivers to terminal first (feeds the market/lab pipeline)
+- Nearest room is cached and re-evaluated every 500 ticks
 
 ### Console
 ```js

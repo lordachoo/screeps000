@@ -80,7 +80,8 @@ module.exports = {
     },
 
     deliver(creep) {
-        const homeRoom = creep.memory.homeRoom;
+        // Deliver to nearest owned room, not necessarily spawn room
+        const homeRoom = this.getNearestOwnedRoom(creep);
 
         // Travel home
         if (creep.room.name !== homeRoom) {
@@ -137,5 +138,34 @@ module.exports = {
         if (creep.transfer(target, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
             creep.moveTo(target, { reusePath: 5, visualizePathStyle: { stroke: '#ffffff' } });
         }
+    },
+
+    getNearestOwnedRoom(creep) {
+        // Cache the result so we don't recalculate every tick
+        if (creep.memory.deliverRoom) {
+            // Re-evaluate every 500 ticks in case rooms change
+            if (Game.time % 500 !== 0) return creep.memory.deliverRoom;
+        }
+
+        const targetRoom = creep.memory.targetRoom;
+        const ownedRooms = Object.values(Game.rooms).filter(r =>
+            r.controller && r.controller.my && r.controller.level >= 2
+        );
+
+        if (ownedRooms.length === 0) return creep.memory.homeRoom;
+
+        let nearest = creep.memory.homeRoom;
+        let bestDist = Infinity;
+
+        for (const room of ownedRooms) {
+            const dist = Game.map.getRoomLinearDistance(targetRoom, room.name);
+            if (dist < bestDist) {
+                bestDist = dist;
+                nearest = room.name;
+            }
+        }
+
+        creep.memory.deliverRoom = nearest;
+        return nearest;
     }
 };

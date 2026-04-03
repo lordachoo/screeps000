@@ -189,7 +189,16 @@ module.exports = {
     },
 
     haulersNeeded(room, remote) {
-        const distance = Game.map.getRoomLinearDistance(room.name, remote.name) * 50;
+        // Use distance to nearest owned room, not necessarily this room
+        const ownedRooms = Object.values(Game.rooms).filter(r =>
+            r.controller && r.controller.my && r.controller.level >= 2
+        );
+        let minDist = Game.map.getRoomLinearDistance(room.name, remote.name);
+        for (const owned of ownedRooms) {
+            const d = Game.map.getRoomLinearDistance(owned.name, remote.name);
+            if (d < minDist) minDist = d;
+        }
+        const distance = minDist * 50;
         const sourceCount = remote.sources.length;
         const energyPerTick = remote.reserved ? 13.3 : 10;
 

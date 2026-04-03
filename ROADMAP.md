@@ -14,6 +14,7 @@ Planned features and improvements, roughly in priority order. Inspired partly by
 - ✅ **Auto-set Memory.username** — no longer needs manual console set
 - ✅ **Smarter pioneer spawn energy** — pioneered rooms stay in remote mining pool until spawn is complete
 - ✅ **Player whitelist / non-aggression pact** — `Memory.whitelist` array; towers, defenders, and ranged defenders all skip whitelisted players. See [WHITELIST.md](WHITELIST.md).
+- ✅ **Haulers deliver to nearest owned room** — remote haulers now find the closest owned room (RCL 2+) instead of always returning to spawn room. Eliminates 3-room hauls when a closer base exists.
 
 ---
 
