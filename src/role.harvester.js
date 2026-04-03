@@ -41,10 +41,12 @@ module.exports = {
             return;
         }
 
-        // Pull from links (fastest fill)
+        // Pull from links (but not source links — we'd just put it back)
+        const sourceLinkIds = (creep.room.memory.links && creep.room.memory.links.sources) || [];
         const link = creep.pos.findClosestByPath(FIND_MY_STRUCTURES, {
             filter: s => s.structureType === STRUCTURE_LINK &&
-                         s.store.getUsedCapacity(RESOURCE_ENERGY) > 0
+                         s.store.getUsedCapacity(RESOURCE_ENERGY) > 0 &&
+                         !sourceLinkIds.includes(s.id)
         });
         if (link) {
             if (creep.withdraw(link, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
