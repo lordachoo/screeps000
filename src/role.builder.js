@@ -76,15 +76,22 @@ module.exports = {
             return;
         }
 
-        // Prioritize critical infrastructure
-        const priority = [STRUCTURE_SPAWN, STRUCTURE_TOWER, STRUCTURE_EXTENSION,
-                          STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_ROAD, STRUCTURE_WALL, STRUCTURE_RAMPART];
+        // If any site is >80% done, finish it first (prevents half-built stalls)
+        const almostDone = _.filter(sites, s => s.progress / s.progressTotal >= 0.8);
         let target;
-        for (const type of priority) {
-            target = _.find(sites, s => s.structureType === type);
-            if (target) break;
+        if (almostDone.length > 0) {
+            // Pick the one closest to completion
+            target = _.max(almostDone, s => s.progress / s.progressTotal);
+        } else {
+            // Prioritize critical infrastructure
+            const priority = [STRUCTURE_SPAWN, STRUCTURE_TOWER, STRUCTURE_EXTENSION, STRUCTURE_LINK,
+                              STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_ROAD, STRUCTURE_WALL, STRUCTURE_RAMPART];
+            for (const type of priority) {
+                target = _.find(sites, s => s.structureType === type);
+                if (target) break;
+            }
+            if (!target) target = sites[0];
         }
-        if (!target) target = sites[0];
 
         if (creep.build(target) === ERR_NOT_IN_RANGE) {
             creep.moveTo(target, { reusePath: 5, visualizePathStyle: { stroke: '#33ff33' } });
