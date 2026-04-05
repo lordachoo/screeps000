@@ -86,7 +86,7 @@ Towers are your automated defense. They attack, heal, and repair without any cre
 ### Strategy
 - All towers **focus-fire the same target** — healers die first (scored: heal×3 + ranged×2 + attack×1)
 - Auto safe mode triggers if spawn is at <50% HP or 3+ hostiles near spawn
-- Towers only repair structures when they have >70% energy — defense always comes first
+- Towers only repair structures when they have >50% energy — defense always comes first
 - Repair priority: non-wall structures first, then walls/ramparts up to RCL-scaled HP threshold
 - Keep towers fed — harvesters deliver to towers after filling spawn/extensions
 
@@ -218,7 +218,7 @@ Ramparts sit on top of other structures or walkable tiles and absorb all incomin
 ### Strategy
 - Auto-placed on: spawns, storage, terminal, towers, links
 - HP targets scale with RCL: `{ 1: 1000, 2: 5000, 3: 25000, 4: 50000, 5: 100000, 6: 500000, 7: 1000000, 8: 5000000 }`
-- Tower repairs ramparts when above 70% energy
+- Tower repairs ramparts when above 50% energy
 - Repairers focus on ramparts/walls after other structures are healthy
 
 ### Console

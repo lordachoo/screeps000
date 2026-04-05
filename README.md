@@ -153,10 +153,10 @@ Creeps spawn in this priority order (lower number = spawns first):
 | Priority | Role | Min Count |
 |----------|------|-----------|
 | 1 | Harvester | 2-3 |
-| 3 | Upgrader | 2-5 |
-| 4 | Builder | 1-2 |
-| 5 | Repairer | 0-1 |
-| 6 | Defender / Ranged Defender | 0-2 |
+| 4 | Repairer | 0-1 |
+| 5 | Upgrader | 2-5 |
+| 6 | Builder | 1-2 |
+| 7 | Defender / Ranged Defender | 0-2 |
 | 7 | Scout | 0-1 |
 | 8 | Remote Miner | 0-4 |
 | 9 | Hauler | 0-6 |

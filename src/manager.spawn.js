@@ -8,9 +8,9 @@ const ROLES = {
     harvester:       { min: 0, priority: 1 },  // Emergency fallback only
     miner:           { min: 0, priority: 2 },
     basehauler:      { min: 0, priority: 3 },
-    upgrader:        { min: 2, priority: 4 },
-    builder:         { min: 2, priority: 5 },
-    repairer:        { min: 1, priority: 6 },
+    repairer:        { min: 1, priority: 4 },  // Roads/structures must stay healthy
+    upgrader:        { min: 2, priority: 5 },
+    builder:         { min: 2, priority: 6 },
     defender:        { min: 0, priority: 7 },
     rangedDefender:  { min: 0, priority: 7 },
     scout:           { min: 0, priority: 8 },

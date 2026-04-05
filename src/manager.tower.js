@@ -41,8 +41,8 @@ module.exports = {
                 continue;
             }
 
-            // Priority 3: Repair damaged structures (only if tower has good energy)
-            if (tower.store.getUsedCapacity(RESOURCE_ENERGY) > tower.store.getCapacity(RESOURCE_ENERGY) * 0.7) {
+            // Priority 3: Repair damaged structures (keep threshold low so roads don't decay)
+            if (tower.store.getUsedCapacity(RESOURCE_ENERGY) > tower.store.getCapacity(RESOURCE_ENERGY) * 0.5) {
                 this.repairStructure(tower, room);
             }
         }

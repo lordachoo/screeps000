@@ -103,7 +103,7 @@ Object.values(Game.creeps).filter(c => c.memory.role === 'basehauler').map(c => 
 
 ## Upgrader
 
-**Priority:** 3
+**Priority:** 5
 **Role:** Upgrade the room controller
 
 Upgraders pump progress into the controller constantly. Losing all upgraders will eventually cause the controller to downgrade and you lose the room.
@@ -142,7 +142,7 @@ Object.values(Game.creeps).filter(c => c.memory.role === 'upgrader').map(c => ({
 
 ## Builder
 
-**Priority:** 4
+**Priority:** 6
 **Role:** Build construction sites, fallback to upgrading
 
 Builders work through the construction queue and fall back to upgrading when there's nothing left to build.
@@ -180,7 +180,7 @@ Game.rooms['E13N53'].find(FIND_CONSTRUCTION_SITES).map(s => s.structureType)
 
 ## Repairer
 
-**Priority:** 5
+**Priority:** 4 (before upgrader and builder)
 **Unlocks:** RCL 3
 **Role:** Keep structures healthy, fallback to building/upgrading
 
@@ -220,7 +220,7 @@ Game.rooms['E13N53'].find(FIND_STRUCTURES, {filter: s => s.hits < s.hitsMax && s
 
 ## Defender
 
-**Priority:** 6
+**Priority:** 7
 **Role:** Melee combat, spawns when hostiles are detected
 
 Basic melee defender. Spawns reactively when hostiles are in the room.
@@ -249,7 +249,7 @@ Game.rooms['E13N53'].find(FIND_HOSTILE_CREEPS).map(c => ({name: c.name, owner: c
 
 ## Ranged Defender
 
-**Priority:** 6 (same as defender)
+**Priority:** 7 (same as defender)
 **Unlocks:** RCL 4+, only spawns when hostiles present
 **Role:** Kiting ranged combat with self-heal
 
@@ -552,9 +552,9 @@ Game.rooms['E13N53'].memory.labTarget
 | 1 | Harvester | 0 (emergency only) | Only if miner+basehauler both dead |
 | 2 | Miner | 1 per home source | RCL 1 |
 | 3 | Basehauler | 1 per home source | RCL 1 |
-| 4 | Upgrader | 2-5 | RCL 1 |
-| 5 | Builder | 1-2 | RCL 1 |
-| 6 | Repairer | 0-1 | RCL 3 |
+| 4 | Repairer | 0-1 | RCL 3 |
+| 5 | Upgrader | 2-5 | RCL 1 |
+| 6 | Builder | 1-2 | RCL 1 |
 | 7 | Defender | 0-2 | When hostiles present |
 | 7 | Ranged Defender | 0-1 | RCL 4 + hostiles |
 | 8 | Scout | 0-1 | RCL 2 |
