@@ -144,8 +144,8 @@ module.exports = {
             pioneer: 0
         };
 
-        // Scout at RCL 2+
-        if (rcl >= 2) {
+        // Scout at RCL 2+ (disable with Memory.disableScouts = true)
+        if (rcl >= 2 && !Memory.disableScouts) {
             counts.scout = 1;
         }
 
